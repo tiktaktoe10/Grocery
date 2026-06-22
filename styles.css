@@ -1826,12 +1826,12 @@ h2 {
 @media (max-width: 768px) {
   .app-shell {
     width: min(100% - 10px, 760px);
-    margin: 10px auto 8px;
+    margin: 8px auto 2px;
   }
 
   .utility-footer {
     width: min(100% - 10px, 760px);
-    margin: 4px auto 14px;
+    margin: 0 auto 10px;
   }
 
   .admin-access-link {
@@ -1842,11 +1842,19 @@ h2 {
 
   .workspace-grid,
   .navigation-grid {
-    gap: 10px;
+    gap: 5px;
   }
 
   .tool-panel {
-    padding: 12px;
+    padding: 10px;
+  }
+
+  .tool-tabs {
+    margin-bottom: 10px;
+  }
+
+  .search-panel {
+    gap: 10px;
   }
 
   .navigation-grid {
@@ -1985,13 +1993,15 @@ h2 {
   }
 
   .results-panel {
-    padding: 8px;
+    padding: 4px;
   }
 
   .results-grid {
-    max-height: 62vh;
-    gap: 8px;
-    padding-right: 2px;
+    max-height: none;
+    gap: 6px;
+    overflow: visible;
+    padding-right: 0;
+    scrollbar-gutter: auto;
   }
 
   .product-card {
