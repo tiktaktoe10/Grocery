@@ -22,6 +22,9 @@ const STORAGE_KEYS = {
   adminPasscode: "haulmart.admin.passcode.v1"
 };
 
+const PRODUCT_IMAGE_BASE_PATH = "assets/products/";
+const IMAGE_FILE_EXTENSION = /\.(avif|gif|jpe?g|png|svg|webp)$/i;
+
 const LOCATION_ZONES = [
   { key: "meat-1", label: "Meat 1", order: 1, left: 21.83, top: 7.83, width: 10.44, height: 4.34 },
   { key: "meat-2", label: "Meat 2", order: 2, left: 32.27, top: 7.83, width: 10.44, height: 4.34 },
@@ -499,12 +502,13 @@ function renderProductCard(product) {
   const stockText = display.inStock ? "In stock" : "Sold out";
   const active = state.activeProductId === product.id;
   const locationLabel = getProductLocationLabel(product);
-  const productImage = display.image
-    ? `<img class="product-image" src="${escapeHTML(getImageSource(display.image))}" alt="${escapeHTML(display.imageAlt)}" onerror="replaceBrokenProductImage(this)">`
+  const imageSource = getImageSource(display.image);
+  const productImage = imageSource
+    ? `<img class="product-image" src="${escapeHTML(imageSource)}" alt="${escapeHTML(display.imageAlt)}" onerror="replaceBrokenProductImage(this)">`
     : `<div class="missing-image">Image not available</div>`;
   return `
     <article class="product-card ${active ? "is-active" : ""}" data-product-id="${escapeHTML(product.id)}">
-      <div class="product-shot ${display.image ? "has-image" : "is-missing"}" data-aisle="${getProductShotSlot(product)}" aria-label="Product photo for ${escapeHTML(display.imageAlt)}">
+      <div class="product-shot ${imageSource ? "has-image" : "is-missing"}" data-aisle="${getProductShotSlot(product)}" aria-label="Product photo for ${escapeHTML(display.imageAlt)}">
         ${productImage}
       </div>
       <div class="product-body">
@@ -556,11 +560,11 @@ function renderVariantPicker(product, selectedVariant) {
 function renderVariantOption(product, variant, selectedVariant) {
   const selected = selectedVariant?.id === variant.id;
   const stockText = variant.inStock ? "In stock" : "Sold out";
-  const image = variant.image || product.image;
+  const imageSource = getImageSource(variant.image || product.image);
   return `
     <button class="variant-option ${selected ? "is-selected" : ""}" type="button" data-action="variant" data-id="${escapeHTML(product.id)}" data-variant-id="${escapeHTML(variant.id)}" aria-pressed="${selected ? "true" : "false"}">
-      <span class="variant-thumb ${image ? "" : "is-empty"}">
-        ${image ? `<img src="${escapeHTML(getImageSource(image))}" alt="${escapeHTML(`${product.name} ${variant.name}`)}" onerror="replaceBrokenVariantThumb(this)">` : "No image"}
+      <span class="variant-thumb ${imageSource ? "" : "is-empty"}">
+        ${imageSource ? `<img src="${escapeHTML(imageSource)}" alt="${escapeHTML(`${product.name} ${variant.name}`)}" onerror="replaceBrokenVariantThumb(this)">` : "No image"}
       </span>
       <span class="variant-copy">
         <span class="variant-name">${escapeHTML(variant.name)}</span>
@@ -1214,7 +1218,7 @@ function renderInlineAdminEditor(product) {
         <input name="category" type="text" value="${escapeHTML(product.category)}">
 
         <label>Product Image</label>
-        <input name="image" type="text" value="${escapeHTML(product.image || "")}" placeholder="Paste image URL, copied image, or local path" data-inline-image>
+        <input name="image" type="text" value="${escapeHTML(product.image || "")}" placeholder="assets/products/product-name.jpg" data-inline-image>
         <input type="file" accept="image/*" aria-label="Upload product image" data-inline-image-upload>
         ${renderImagePreview(product.image)}
 
@@ -1264,7 +1268,7 @@ function renderVariantEditorRow(variant = {}) {
         </div>
         <div class="form-pair">
           <label>Image URL</label>
-          <input type="text" value="${escapeHTML(variant.image || "")}" placeholder="Variant image URL" data-inline-variant-image>
+          <input type="text" value="${escapeHTML(variant.image || "")}" placeholder="assets/products/product-variant.jpg" data-inline-variant-image>
         </div>
       </div>
       ${renderImagePreview(variant.image).replace("data-inline-image-preview", "data-variant-image-preview")}
@@ -1324,7 +1328,7 @@ function saveInlineAdminProduct(event) {
   product.price = Math.max(0, Number(form.elements.price.value) || 0);
   setProductLocation(product, form.elements.location.value);
   product.category = form.elements.category.value.trim() || product.category;
-  product.image = form.elements.image.value.trim();
+  product.image = normalizeProductImagePath(form.elements.image.value);
   product.inStock = form.elements.stock.value === "true";
   product.variants = collectVariantRows(form, product);
   product.id = product.id || slugify(product.name);
@@ -1413,7 +1417,7 @@ function collectVariantRows(form, product) {
         id,
         name,
         price: Number.isFinite(price) ? price : product.price,
-        image: row.querySelector("[data-inline-variant-image]")?.value.trim() || "",
+        image: normalizeProductImagePath(row.querySelector("[data-inline-variant-image]")?.value || ""),
         inStock: row.querySelector("[data-variant-stock]")?.value !== "false"
       };
     })
@@ -1431,7 +1435,7 @@ function addAdminProduct(event) {
     price: Math.max(0, Number(els.newPrice.value) || 0),
     ...createLocationFields(els.newLocation.value || "aisle-1"),
     category: els.newCategory.value.trim() || "General",
-    image: els.newImage.value.trim(),
+    image: normalizeProductImagePath(els.newImage.value),
     inStock: true
   });
 
@@ -1517,9 +1521,8 @@ function handleImageUpload(fileInput, textInput, previewNode) {
     return;
   }
 
-  previewNode.classList.remove("is-empty");
-  previewNode.textContent = "Loading image...";
-  readImageFileIntoField(file, textInput, previewNode);
+  textInput.value = `${PRODUCT_IMAGE_BASE_PATH}${sanitizeProductImageFileName(file.name)}`;
+  updateImagePreview(previewNode, textInput.value);
 }
 
 function handleImagePaste(event, textInput, previewNode, fileInput = null) {
@@ -1529,9 +1532,8 @@ function handleImagePaste(event, textInput, previewNode, fileInput = null) {
   if (imageFile) {
     event.preventDefault();
     if (fileInput) fileInput.value = "";
-    previewNode.classList.remove("is-empty");
-    previewNode.textContent = "Loading image...";
-    readImageFileIntoField(imageFile, textInput, previewNode);
+    textInput.value = `${PRODUCT_IMAGE_BASE_PATH}${sanitizeProductImageFileName(imageFile.name || "pasted-product-image.png")}`;
+    updateImagePreview(previewNode, textInput.value);
     return;
   }
 
@@ -1539,8 +1541,8 @@ function handleImagePaste(event, textInput, previewNode, fileInput = null) {
   if (!imageValue) return;
   event.preventDefault();
   if (fileInput) fileInput.value = "";
-  textInput.value = imageValue;
-  updateImagePreview(previewNode, imageValue);
+  textInput.value = normalizeProductImagePath(imageValue);
+  updateImagePreview(previewNode, textInput.value || imageValue);
 }
 
 function getClipboardImageFile(clipboardData) {
@@ -1579,28 +1581,59 @@ function decodeHTML(value) {
   return parser.value;
 }
 
-function readImageFileIntoField(file, textInput, previewNode) {
-  const reader = new FileReader();
-  reader.addEventListener("load", () => {
-    textInput.value = String(reader.result || "");
-    updateImagePreview(previewNode, textInput.value);
-  });
-  reader.addEventListener("error", () => {
-    updateImagePreview(previewNode, textInput.value);
-  });
-  reader.readAsDataURL(file);
+function normalizeProductImagePath(value) {
+  let image = decodeHTML(String(value || "")).trim().replaceAll("\\", "/");
+  if (!image) return "";
+
+  const assetMatch = image.match(/(?:^|\/)(assets\/products\/[^?#]+)/i);
+  if (assetMatch) return cleanRelativeProductImagePath(assetMatch[1]);
+
+  if (/^(https?:|data:|file:|blob:)/i.test(image) || /^[a-zA-Z]:\//.test(image)) {
+    return "";
+  }
+
+  image = image.replace(/^\.?\//, "").replace(/^\/+/, "").split(/[?#]/)[0];
+  if (!image.includes("/") && IMAGE_FILE_EXTENSION.test(image)) {
+    return `${PRODUCT_IMAGE_BASE_PATH}${sanitizeProductImageFileName(image)}`;
+  }
+
+  return cleanRelativeProductImagePath(image);
+}
+
+function cleanRelativeProductImagePath(value) {
+  const clean = String(value || "")
+    .trim()
+    .replaceAll("\\", "/")
+    .replace(/^\.?\//, "")
+    .replace(/^\/+/, "")
+    .split(/[?#]/)[0];
+  const match = clean.match(/^assets\/products\/(.+)$/i);
+  if (!match || !IMAGE_FILE_EXTENSION.test(clean)) return "";
+  const filePath = match[1].split("/").map(sanitizeProductImageFileName).join("/");
+  if (!filePath || filePath.split("/").some((part) => !part || part === "." || part === "..")) return "";
+  return `${PRODUCT_IMAGE_BASE_PATH}${filePath}`;
+}
+
+function sanitizeProductImageFileName(fileName) {
+  return String(fileName || "product-image.png")
+    .trim()
+    .replace(/[\\/:*?"<>|#%]+/g, "-")
+    .replace(/\s+/g, " ") || "product-image.png";
 }
 
 function updateImagePreview(previewNode, imageValue) {
-  const image = String(imageValue || "").trim();
+  const rawImage = String(imageValue || "").trim();
+  const image = normalizeProductImagePath(rawImage);
   previewNode.classList.toggle("is-empty", !image);
   previewNode.innerHTML = image
     ? renderPreviewImage(image)
-    : "Image preview";
+    : rawImage
+      ? `Use a relative path like ${PRODUCT_IMAGE_BASE_PATH}product-name.jpg`
+      : "Image preview";
 }
 
 function renderImagePreview(imageValue) {
-  const image = String(imageValue || "").trim();
+  const image = normalizeProductImagePath(imageValue);
   return `
     <div class="image-preview ${image ? "" : "is-empty"}" data-inline-image-preview>
       ${image ? renderPreviewImage(image) : "Image preview"}
@@ -1613,13 +1646,7 @@ function renderPreviewImage(image) {
 }
 
 function getImageSource(imageValue) {
-  const image = String(imageValue || "").trim();
-  if (!image) return "";
-  if (/^(https?:|data:|file:|blob:)/i.test(image)) return image;
-  if (/^[a-zA-Z]:[\\/]/.test(image)) {
-    return `file:///${image.replaceAll("\\", "/")}`;
-  }
-  return image;
+  return normalizeProductImagePath(imageValue);
 }
 
 function createMissingImageNode() {
@@ -2124,7 +2151,7 @@ function normalizeProduct(product) {
     ...product,
     ...locationFields,
     price: Math.max(0, Number(product.price) || 0),
-    image: product.image || "",
+    image: normalizeProductImagePath(product.image),
     inStock: product.inStock !== false
   };
   return {
@@ -2147,7 +2174,7 @@ function normalizeVariants(variants, product) {
         id,
         name,
         price: Number.isFinite(price) ? price : product.price,
-        image: variant.image || "",
+        image: normalizeProductImagePath(variant.image),
         inStock: variant.inStock !== false
       };
     })
