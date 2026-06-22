@@ -1,0 +1,2238 @@
+const CURRENCY = new Intl.NumberFormat("en-PH", {
+  style: "currency",
+  currency: "PHP",
+  maximumFractionDigits: 0
+});
+
+const ADMIN_CONFIG = {
+  defaultPasscode: "7391",
+  maxFailedAttempts: 3,
+  lockoutMs: 30000,
+  minPasscodeLength: 4
+};
+
+const STORAGE_KEYS = {
+  products: "haulmart.products.v1",
+  deletedProducts: "haulmart.products.deleted.v1",
+  list: "haulmart.list.v1",
+  budget: "haulmart.budget.v1",
+  mapSections: "haulmart.map.sections.v1",
+  wallRenameMigration: "haulmart.wall.rename.456.v1",
+  admin: "haulmart.admin.v1",
+  adminPasscode: "haulmart.admin.passcode.v1"
+};
+
+const LOCATION_ZONES = [
+  { key: "meat-1", label: "Meat 1", order: 1, left: 21.83, top: 7.83, width: 10.44, height: 4.34 },
+  { key: "meat-2", label: "Meat 2", order: 2, left: 32.27, top: 7.83, width: 10.44, height: 4.34 },
+  { key: "meat-3", label: "Meat 3", order: 3, left: 42.71, top: 7.83, width: 10.44, height: 4.34 },
+  { key: "meat-4", label: "Meat 4", order: 4, left: 53.14, top: 7.83, width: 10.44, height: 4.34 },
+  { key: "meat-5", label: "Meat 5", order: 5, left: 63.58, top: 7.83, width: 10.44, height: 4.34 },
+  { key: "frozen-1", label: "Frozen 1", order: 11, left: 17.45, top: 25.10, width: 10.45, height: 4.34 },
+  { key: "frozen-2", label: "Frozen 2", order: 12, left: 33.38, top: 25.27, width: 10.45, height: 4.32 },
+  { key: "frozen-3", label: "Frozen 3", order: 13, left: 49.31, top: 25.27, width: 10.45, height: 4.32 },
+  { key: "frozen-4", label: "Frozen 4", order: 14, left: 65.23, top: 25.27, width: 10.45, height: 4.32 },
+  { key: "aisle-6", label: "Aisle 6", order: 26, left: 22.74, top: 38.64, width: 3.91, height: 12.46 },
+  { key: "aisle-7", label: "Aisle 7", order: 27, left: 33.13, top: 38.64, width: 3.92, height: 12.46 },
+  { key: "aisle-8", label: "Aisle 8", order: 28, left: 43.53, top: 38.64, width: 3.92, height: 12.46 },
+  { key: "aisle-9", label: "Aisle 9", order: 29, left: 53.94, top: 38.64, width: 3.92, height: 12.46 },
+  { key: "aisle-10", label: "Aisle 10", order: 30, left: 64.34, top: 38.64, width: 3.92, height: 12.46 },
+  { key: "aisle-1", label: "Aisle 1", order: 21, left: 22.74, top: 56.04, width: 3.91, height: 12.46 },
+  { key: "aisle-2", label: "Aisle 2", order: 22, left: 33.15, top: 56.04, width: 3.91, height: 12.46 },
+  { key: "aisle-3", label: "Aisle 3", order: 23, left: 43.55, top: 56.04, width: 3.91, height: 12.46 },
+  { key: "aisle-4", label: "Aisle 4", order: 24, left: 53.95, top: 56.04, width: 3.91, height: 12.46 },
+  { key: "aisle-5", label: "Aisle 5", order: 25, left: 64.35, top: 56.04, width: 3.91, height: 12.46 },
+  { key: "wall-6", label: "Wall 6", order: 41, left: 7.49, top: 9.51, width: 3.78, height: 15.30 },
+  { key: "wall-5", label: "Wall 5", order: 42, left: 7.49, top: 24.94, width: 3.78, height: 15.30 },
+  { key: "wall-4", label: "Wall 4", order: 43, left: 7.49, top: 40.37, width: 3.78, height: 15.30 },
+  { key: "wall-3", label: "Wall 3", order: 44, left: 80.12, top: 9.68, width: 3.79, height: 15.28 },
+  { key: "wall-2", label: "Wall 2", order: 45, left: 80.12, top: 25.12, width: 3.79, height: 15.28 },
+  { key: "wall-1", label: "Wall 1", order: 46, left: 80.12, top: 40.53, width: 3.79, height: 15.30 }
+];
+
+const LEGACY_WALL_LOCATION_RENAMES = {
+  "wall-6": "wall-4",
+  "wall-7": "wall-5",
+  "wall-8": "wall-6"
+};
+
+const EXTRA_PRODUCTS = [
+  { id: "fresh-chicken-breast", name: "Fresh Chicken Breast", price: 180, category: "Meat - Chicken", locationKey: "meat-1", inStock: true },
+  { id: "chicken-thigh", name: "Chicken Thigh", price: 165, category: "Meat - Chicken", locationKey: "meat-1", inStock: true },
+  { id: "chicken-wings", name: "Chicken Wings", price: 170, category: "Meat - Chicken", locationKey: "meat-1", inStock: true },
+  { id: "whole-chicken", name: "Whole Chicken", price: 220, category: "Meat - Chicken", locationKey: "meat-1", inStock: true },
+  { id: "pork-belly", name: "Pork Belly", price: 260, category: "Meat - Pork", locationKey: "meat-2", inStock: true },
+  { id: "pork-chop", name: "Pork Chop", price: 230, category: "Meat - Pork", locationKey: "meat-2", inStock: true },
+  { id: "ground-pork", name: "Ground Pork", price: 190, category: "Meat - Pork", locationKey: "meat-2", inStock: true },
+  { id: "pork-tenderloin", name: "Pork Tenderloin", price: 280, category: "Meat - Pork", locationKey: "meat-2", inStock: true },
+  { id: "beef-sukiyaki", name: "Beef Sukiyaki", price: 380, category: "Meat - Beef", locationKey: "meat-3", inStock: true },
+  { id: "ground-beef", name: "Ground Beef", price: 310, category: "Meat - Beef", locationKey: "meat-3", inStock: true },
+  { id: "beef-cubes", name: "Beef Cubes", price: 340, category: "Meat - Beef", locationKey: "meat-3", inStock: true },
+  { id: "beef-short-ribs", name: "Beef Short Ribs", price: 420, category: "Meat - Beef", locationKey: "meat-3", inStock: true },
+  { id: "bacon", name: "Bacon", price: 180, category: "Meat - Processed", locationKey: "meat-4", inStock: true },
+  { id: "ham-slices", name: "Ham Slices", price: 150, category: "Meat - Processed", locationKey: "meat-4", inStock: true },
+  { id: "hotdog", name: "Hotdog", price: 135, category: "Meat - Processed", locationKey: "meat-4", inStock: true },
+  { id: "hungarian-sausage", name: "Hungarian Sausage", price: 220, category: "Meat - Processed", locationKey: "meat-4", inStock: true },
+  { id: "pork-bbq-skewers", name: "Pork BBQ Skewers", price: 180, category: "Meat - Marinated", locationKey: "meat-5", inStock: true },
+  { id: "chicken-inasal-cut", name: "Chicken Inasal Cut", price: 210, category: "Meat - Marinated", locationKey: "meat-5", inStock: true },
+  { id: "beef-tapa", name: "Beef Tapa", price: 240, category: "Meat - Marinated", locationKey: "meat-5", inStock: true },
+  { id: "pork-tocino", name: "Pork Tocino", price: 180, category: "Meat - Marinated", locationKey: "meat-5", inStock: true },
+  { id: "ice-cream-tub", name: "Ice Cream Tub", price: 250, category: "Frozen Desserts", locationKey: "frozen-1", inStock: true },
+  { id: "frozen-mango-bars", name: "Frozen Mango Bars", price: 180, category: "Frozen Desserts", locationKey: "frozen-1", inStock: true },
+  { id: "frozen-dumplings", name: "Frozen Dumplings", price: 220, category: "Frozen Meals", locationKey: "frozen-2", inStock: true },
+  { id: "frozen-siomai", name: "Frozen Siomai", price: 160, category: "Frozen Meals", locationKey: "frozen-2", inStock: true },
+  { id: "frozen-fries", name: "Frozen Fries", price: 145, category: "Frozen Sides", locationKey: "frozen-3", inStock: true },
+  { id: "frozen-vegetables", name: "Frozen Vegetables", price: 130, category: "Frozen Sides", locationKey: "frozen-3", inStock: true },
+  { id: "fish-fillet", name: "Fish Fillet", price: 210, category: "Frozen Seafood", locationKey: "frozen-4", inStock: true },
+  { id: "shrimp-pack", name: "Shrimp Pack", price: 320, category: "Frozen Seafood", locationKey: "frozen-4", inStock: true },
+  { id: "garlic-bulb", name: "Garlic Bulb", price: 25, category: "Wall Produce", locationKey: "wall-1", inStock: true },
+  { id: "red-onion", name: "Red Onion", price: 35, category: "Wall Produce", locationKey: "wall-1", inStock: true },
+  { id: "tomato", name: "Tomato", price: 45, category: "Wall Produce", locationKey: "wall-1", inStock: true },
+  { id: "potato", name: "Potato", price: 70, category: "Wall Produce", locationKey: "wall-1", inStock: true },
+  { id: "fresh-milk", name: "Fresh Milk", price: 95, category: "Dairy & Eggs", locationKey: "wall-2", inStock: true },
+  { id: "cheese-slices", name: "Cheese Slices", price: 120, category: "Dairy & Eggs", locationKey: "wall-2", inStock: true },
+  { id: "butter", name: "Butter", price: 130, category: "Dairy & Eggs", locationKey: "wall-2", inStock: true },
+  { id: "eggs-12pcs", name: "Eggs 12pcs", price: 115, category: "Dairy & Eggs", locationKey: "wall-2", inStock: true },
+  { id: "ensaymada", name: "Ensaymada", price: 35, category: "Wall Bakery", locationKey: "wall-3", inStock: true },
+  { id: "spanish-bread", name: "Spanish Bread", price: 40, category: "Wall Bakery", locationKey: "wall-3", inStock: true },
+  { id: "loaf-cake", name: "Loaf Cake", price: 120, category: "Wall Bakery", locationKey: "wall-3", inStock: true },
+  { id: "donuts", name: "Donuts", price: 55, category: "Wall Bakery", locationKey: "wall-3", inStock: true },
+  { id: "lettuce", name: "Lettuce", price: 85, category: "Fresh Produce", locationKey: "wall-4", inStock: true },
+  { id: "cucumber", name: "Cucumber", price: 45, category: "Fresh Produce", locationKey: "wall-4", inStock: true },
+  { id: "carrots", name: "Carrots", price: 65, category: "Fresh Produce", locationKey: "wall-4", inStock: true },
+  { id: "cabbage", name: "Cabbage", price: 80, category: "Fresh Produce", locationKey: "wall-4", inStock: true },
+  { id: "tofu", name: "Tofu", price: 45, category: "Refrigerated Asian Items", locationKey: "wall-5", inStock: true },
+  { id: "kimchi", name: "Kimchi", price: 180, category: "Refrigerated Asian Items", locationKey: "wall-5", inStock: true },
+  { id: "miso-paste", name: "Miso Paste", price: 140, category: "Refrigerated Asian Items", locationKey: "wall-5", inStock: true },
+  { id: "fish-cake", name: "Fish Cake", price: 110, category: "Refrigerated Asian Items", locationKey: "wall-5", inStock: true },
+  { id: "banana", name: "Banana", price: 85, category: "Wall Fruits", locationKey: "wall-6", inStock: true },
+  { id: "apple", name: "Apple", price: 35, category: "Wall Fruits", locationKey: "wall-6", inStock: true },
+  { id: "mango", name: "Mango", price: 120, category: "Wall Fruits", locationKey: "wall-6", inStock: true },
+  { id: "orange", name: "Orange", price: 45, category: "Wall Fruits", locationKey: "wall-6", inStock: true }
+];
+
+const LOCATION_BY_KEY = new Map(LOCATION_ZONES.map((location) => [location.key, location]));
+
+const LOCATION_PRODUCT_GROUPS = {
+  "aisle-1": ["Rice", "Cooking Oil", "Soy & Vinegar", "Sauces", "Seasonings"],
+  "aisle-2": ["Instant Noodles", "Canned Fish", "Canned Meat", "Canned Vegetables", "Pantry Milk"],
+  "aisle-3": ["Coffee", "Powdered Milk", "Chocolate Drinks", "Spreads", "Breakfast Syrups"],
+  "aisle-4": ["Cereal", "Oats", "Bread", "Flour", "Baking Ingredients"],
+  "aisle-5": ["Cookies", "Crackers", "Chips", "Nuts", "Chocolate", "Candy"],
+  "aisle-6": ["Soft Drinks", "Juice", "Tea", "Dairy Drinks", "Water"],
+  "aisle-7": ["Energy Drinks", "Sports Drinks", "Imported Drinks", "Ready-to-Drink Coffee", "Tea"],
+  "aisle-8": ["Hair Care", "Bath & Soap", "Deodorant", "Oral Care", "Shaving", "Skin & Feminine Care"],
+  "aisle-9": ["Laundry", "Dishwashing", "Bleach & Cleaners", "Air Care", "Cleaning Tools", "Trash Bags"],
+  "aisle-10": ["Baby Care", "Pharmacy", "Vitamins", "Personal Care", "Feminine Care", "First Aid"],
+  "meat-1": ["Chicken Breast", "Chicken Thigh", "Wings", "Whole Chicken"],
+  "meat-2": ["Pork Belly", "Pork Chop", "Ground Pork", "Tenderloin"],
+  "meat-3": ["Beef Cuts", "Ground Beef", "Short Ribs"],
+  "meat-4": ["Bacon", "Ham", "Hotdog", "Sausage"],
+  "meat-5": ["BBQ Skewers", "Marinated Chicken", "Tapa", "Tocino"],
+  "frozen-1": ["Ice Cream", "Frozen Desserts"],
+  "frozen-2": ["Dumplings", "Siomai", "Frozen Meals"],
+  "frozen-3": ["Fries", "Frozen Vegetables", "Frozen Sides"],
+  "frozen-4": ["Fish Fillet", "Shrimp", "Frozen Seafood"],
+  "wall-1": ["Garlic & Onion", "Tomatoes", "Potatoes", "Produce Staples"],
+  "wall-2": ["Milk", "Cheese", "Butter", "Eggs"],
+  "wall-3": ["Bread", "Pastries", "Cakes", "Donuts"],
+  "wall-4": ["Leafy Greens", "Vegetables", "Salad Produce"],
+  "wall-5": ["Tofu", "Kimchi", "Miso", "Refrigerated Asian Items"],
+  "wall-6": ["Bananas", "Apples", "Mangoes", "Citrus"]
+};
+
+const MAP_LANDMARKS = [
+  { label: "C1", type: "cashier", left: 28.8, top: 75.7, width: 7.0, height: 5.9 },
+  { label: "C2", type: "cashier", left: 39.7, top: 75.7, width: 7.0, height: 5.9 },
+  { label: "C3", type: "cashier", left: 50.6, top: 75.7, width: 7.0, height: 5.9 },
+  { label: "C4", type: "cashier", left: 61.4, top: 75.7, width: 7.0, height: 5.9 },
+  { label: "C5", type: "cashier", left: 72.3, top: 75.7, width: 7.0, height: 5.9 },
+  { label: "Entrance", type: "entrance-word", left: 8.4, top: 76.1, width: 15.2, height: 5.6 },
+  { label: "Entrance", type: "entry", left: 31.0, top: 89.9, width: 16.5, height: 3.8 },
+  { label: "Exit", type: "exit", left: 55.8, top: 89.9, width: 16.5, height: 3.8 },
+  { label: "Restroom", type: "restroom", left: 87.4, top: 78.8, width: 11.0, height: 10.4 }
+];
+
+const DEFAULT_PRODUCTS = Array.isArray(window.HAULMART_PRODUCTS)
+  ? [...window.HAULMART_PRODUCTS, ...EXTRA_PRODUCTS]
+  : [];
+const DEFAULT_PRODUCT_IDS = new Set(DEFAULT_PRODUCTS.map((product) => product.id));
+
+const state = {
+  role: "customer",
+  tab: "navigation",
+  products: loadProducts(),
+  deletedProductIds: readJSON(STORAGE_KEYS.deletedProducts, []),
+  groceryList: readJSON(STORAGE_KEYS.list, []),
+  budget: readJSON(STORAGE_KEYS.budget, []),
+  mapSections: loadMapSections(),
+  category: "all",
+  activeLocationKey: null,
+  activeProductId: null,
+  editingProductId: null,
+  selectedVariants: {},
+  mapOpen: true,
+  mapProductId: null,
+  mapFocusTimer: null,
+  adminFailedAttempts: 0,
+  adminLockoutUntil: 0,
+  adminUnlocked: localStorage.getItem(STORAGE_KEYS.admin) === "true"
+};
+
+const els = {};
+
+document.addEventListener("DOMContentLoaded", init);
+
+function init() {
+  cacheElements();
+  renderLocationOptions();
+  renderMapZones();
+  renderProductOptions();
+  renderCategoryChips();
+  wireEvents();
+  renderAll();
+  setRole("customer");
+}
+
+function cacheElements() {
+  els.roleButtons = [...document.querySelectorAll("[data-role]")];
+  els.roleViews = [...document.querySelectorAll("[data-role-view]")];
+  els.tabButtons = [...document.querySelectorAll("[data-tab]")];
+  els.tabScreens = [...document.querySelectorAll("[data-screen]")];
+  els.navSearchForm = document.querySelector("#navSearchForm");
+  els.navSearch = document.querySelector("#navSearch");
+  els.clearNavSearch = document.querySelector("#clearNavSearch");
+  els.categoryChips = document.querySelector("#categoryChips");
+  els.navResults = document.querySelector("#navResults");
+  els.resultsPanel = document.querySelector(".results-panel");
+  els.navigationGrid = document.querySelector(".navigation-grid");
+  els.navResultCount = document.querySelector("#navResultCount");
+  els.mapPanel = document.querySelector("#mapPanel");
+  els.closeMap = document.querySelector("#closeMap");
+  els.mapZones = document.querySelector("#mapZones");
+  els.mapLandmarks = document.querySelector("#mapLandmarks");
+  els.mapTitle = document.querySelector("#mapTitle");
+  els.mapRoute = document.querySelector("#mapRoute");
+  els.mapGroups = document.querySelector("#mapGroups");
+  els.activeAisleBadge = document.querySelector("#activeAisleBadge");
+  els.productOptions = document.querySelector("#productOptions");
+  els.listForm = document.querySelector("#listForm");
+  els.listInput = document.querySelector("#listInput");
+  els.listSuggestions = document.querySelector("#listSuggestions");
+  els.groceryList = document.querySelector("#groceryList");
+  els.listCount = document.querySelector("#listCount");
+  els.listRoute = document.querySelector("#listRoute");
+  els.clearFinished = document.querySelector("#clearFinished");
+  els.budgetForm = document.querySelector("#budgetForm");
+  els.budgetInput = document.querySelector("#budgetInput");
+  els.budgetQty = document.querySelector("#budgetQty");
+  els.budgetSuggestions = document.querySelector("#budgetSuggestions");
+  els.budgetItems = document.querySelector("#budgetItems");
+  els.budgetCount = document.querySelector("#budgetCount");
+  els.budgetTotal = document.querySelector("#budgetTotal");
+  els.makeChecklist = document.querySelector("#makeChecklist");
+  els.clearBudget = document.querySelector("#clearBudget");
+  els.adminLock = document.querySelector("#adminLock");
+  els.adminPanel = document.querySelector("#adminPanel");
+  els.adminLogin = document.querySelector("#adminLogin");
+  els.adminCode = document.querySelector("#adminCode");
+  els.adminLoginMessage = document.querySelector("#adminLoginMessage");
+  els.adminAccessLink = document.querySelector("#adminAccessLink");
+  els.adminBackButton = document.querySelector("#adminBackButton");
+  els.adminBackFromLock = document.querySelector("#adminBackFromLock");
+  els.adminLockButton = document.querySelector("#adminLockButton");
+  els.resetInventory = document.querySelector("#resetInventory");
+  els.adminSearch = document.querySelector("#adminSearch");
+  els.clearAdminSearch = document.querySelector("#clearAdminSearch");
+  els.adminProductList = document.querySelector("#adminProductList");
+  els.adminCount = document.querySelector("#adminCount");
+  els.adminStatus = document.querySelector("#adminStatus");
+  els.adminAddForm = document.querySelector("#adminAddForm");
+  els.newName = document.querySelector("#newName");
+  els.newPrice = document.querySelector("#newPrice");
+  els.newLocation = document.querySelector("#newLocation");
+  els.newCategory = document.querySelector("#newCategory");
+  els.newImage = document.querySelector("#newImage");
+  els.newImageUpload = document.querySelector("#newImageUpload");
+  els.newImagePreview = document.querySelector("#newImagePreview");
+  els.mapSectionForm = document.querySelector("#mapSectionForm");
+  els.mapSectionName = document.querySelector("#mapSectionName");
+  els.mapSectionType = document.querySelector("#mapSectionType");
+  els.mapSectionLabel = document.querySelector("#mapSectionLabel");
+  els.mapSectionCategories = document.querySelector("#mapSectionCategories");
+  els.mapSectionMessage = document.querySelector("#mapSectionMessage");
+  els.mapSectionStatus = document.querySelector("#mapSectionStatus");
+  els.mapSectionList = document.querySelector("#mapSectionList");
+  els.passcodeForm = document.querySelector("#passcodeForm");
+  els.currentPasscode = document.querySelector("#currentPasscode");
+  els.newPasscode = document.querySelector("#newPasscode");
+  els.confirmPasscode = document.querySelector("#confirmPasscode");
+  els.passcodeMessage = document.querySelector("#passcodeMessage");
+  els.passcodeStatus = document.querySelector("#passcodeStatus");
+}
+
+function wireEvents() {
+  els.roleButtons.forEach((button) => {
+    button.addEventListener("click", () => setRole(button.dataset.role));
+  });
+
+  els.tabButtons.forEach((button) => {
+    button.addEventListener("click", () => setTab(button.dataset.tab));
+  });
+
+  els.navSearch.addEventListener("input", () => {
+    state.activeProductId = null;
+    state.activeLocationKey = null;
+    state.category = "all";
+    state.mapProductId = null;
+    setMapPanelVisible(!normalize(els.navSearch.value));
+    renderNavigation();
+  });
+
+  els.navSearchForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    state.activeProductId = null;
+    state.activeLocationKey = null;
+    state.category = "all";
+    state.mapProductId = null;
+    setMapPanelVisible(!normalize(els.navSearch.value));
+    renderNavigation();
+  });
+
+  els.clearNavSearch.addEventListener("click", () => {
+    els.navSearch.value = "";
+    state.category = "all";
+    state.activeLocationKey = null;
+    state.activeProductId = null;
+    state.mapProductId = null;
+    openMapPanel();
+    renderCategoryChips();
+    renderNavigation();
+  });
+
+  els.categoryChips?.addEventListener("click", (event) => {
+    const chip = event.target.closest("[data-category]");
+    if (!chip) return;
+    state.category = chip.dataset.category;
+    state.activeLocationKey = chip.dataset.location || null;
+    state.activeProductId = null;
+    state.mapProductId = null;
+    els.navSearch.value = "";
+    renderCategoryChips();
+    renderNavigation();
+  });
+
+  els.navResults.addEventListener("click", handleProductAction);
+  els.closeMap?.addEventListener("click", closeMapPanel);
+  els.mapZones.addEventListener("click", handleMapZone);
+  document.addEventListener("keydown", handlePageKeydown);
+  els.listInput.addEventListener("input", () => renderProductSuggestions("list"));
+  els.listInput.addEventListener("focus", () => renderProductSuggestions("list"));
+  els.listSuggestions.addEventListener("click", handleListSuggestionClick);
+  els.listForm.addEventListener("submit", handleListSubmit);
+  els.groceryList.addEventListener("click", handleListClick);
+  els.groceryList.addEventListener("change", handleListChange);
+  els.clearFinished.addEventListener("click", clearFinishedItems);
+  els.budgetInput.addEventListener("input", () => renderProductSuggestions("budget"));
+  els.budgetInput.addEventListener("focus", () => renderProductSuggestions("budget"));
+  els.budgetSuggestions.addEventListener("click", handleBudgetSuggestionClick);
+  els.budgetForm.addEventListener("submit", handleBudgetSubmit);
+  els.budgetItems.addEventListener("click", handleBudgetClick);
+  els.budgetItems.addEventListener("change", handleBudgetChange);
+  els.makeChecklist.addEventListener("click", makeBudgetChecklist);
+  els.clearBudget.addEventListener("click", clearBudget);
+  els.adminAccessLink?.addEventListener("click", showAdminAccess);
+  els.adminBackButton?.addEventListener("click", showCustomerView);
+  els.adminBackFromLock?.addEventListener("click", showCustomerView);
+  els.adminLogin.addEventListener("submit", handleAdminLogin);
+  els.adminLockButton.addEventListener("click", lockAdmin);
+  els.resetInventory.addEventListener("click", resetInventory);
+  els.adminSearch.addEventListener("input", renderAdminList);
+  els.clearAdminSearch.addEventListener("click", () => {
+    els.adminSearch.value = "";
+    renderAdminList();
+  });
+  els.adminProductList.addEventListener("click", handleAdminListClick);
+  els.adminProductList.addEventListener("submit", saveInlineAdminProduct);
+  els.adminProductList.addEventListener("input", handleInlineAdminInput);
+  els.adminProductList.addEventListener("change", handleInlineAdminChange);
+  els.adminProductList.addEventListener("paste", handleInlineImagePaste);
+  els.newImage.addEventListener("input", () => updateImagePreview(els.newImagePreview, els.newImage.value));
+  els.newImage.addEventListener("paste", (event) => handleImagePaste(event, els.newImage, els.newImagePreview, els.newImageUpload));
+  els.newImageUpload.addEventListener("change", () => handleImageUpload(els.newImageUpload, els.newImage, els.newImagePreview));
+  els.adminAddForm.addEventListener("submit", addAdminProduct);
+  els.mapSectionForm?.addEventListener("submit", saveMapSection);
+  els.passcodeForm?.addEventListener("submit", handlePasscodeChange);
+}
+
+function setRole(role) {
+  state.role = role;
+  els.roleButtons.forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.role === role);
+  });
+  els.roleViews.forEach((view) => {
+    view.classList.toggle("is-hidden", view.dataset.roleView !== role);
+  });
+  els.adminAccessLink?.classList.toggle("is-hidden", role !== "customer");
+
+  if (role === "admin") {
+    renderAdminGate();
+  }
+}
+
+function showAdminAccess() {
+  setRole("admin");
+  const adminTarget = state.adminUnlocked ? els.adminPanel : els.adminLock;
+  window.requestAnimationFrame(() => {
+    adminTarget?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!state.adminUnlocked) {
+      els.adminCode?.focus();
+    }
+  });
+}
+
+function showCustomerView() {
+  setRole("customer");
+  window.requestAnimationFrame(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+}
+
+function setTab(tab) {
+  state.tab = tab;
+  els.tabButtons.forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.tab === tab);
+  });
+  els.tabScreens.forEach((screen) => {
+    screen.classList.toggle("is-active", screen.dataset.screen === tab);
+  });
+}
+
+function renderAll() {
+  renderNavigation();
+  renderGroceryList();
+  renderBudget();
+  renderMapSettings();
+  renderAdminGate();
+}
+
+function renderProductOptions() {
+  const options = state.products
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .flatMap((product) => [
+      product.name,
+      ...getProductVariants(product).map((variant) => getProductDisplayName(product, variant))
+    ]);
+
+  els.productOptions.innerHTML = options
+    .map((option) => `<option value="${escapeHTML(option)}"></option>`)
+    .join("");
+}
+
+function renderCategoryChips() {
+  if (!els.categoryChips) return;
+  els.categoryChips.innerHTML = "";
+  els.categoryChips.hidden = true;
+}
+
+function renderNavigation() {
+  const results = getNavigationResults();
+  const query = normalize(els.navSearch.value);
+  const hasQuery = Boolean(query);
+  if (hasQuery) {
+    applyQueryVariantSelection(results, query);
+  }
+  const shouldShowResults = hasQuery || Boolean(state.activeLocationKey) || state.category !== "all";
+  if (els.navResultCount) {
+    els.navResultCount.textContent = `${results.length} ${results.length === 1 ? "item" : "items"}`;
+  }
+  els.resultsPanel?.classList.toggle("is-hidden", !shouldShowResults);
+  els.navResults.innerHTML = shouldShowResults
+    ? results.length
+      ? results.map(renderProductCard).join("")
+      : `<div class="empty-state">No products matched that search.</div>`
+    : "";
+
+  const activeProduct = findProductById(state.activeProductId);
+  const firstResult = activeProduct || results[0] || null;
+  const mapProduct = activeProduct || (hasQuery ? firstResult : null);
+  const shouldShowFilteredLocation = state.category !== "all" || Boolean(state.activeLocationKey);
+  const locationKey = mapProduct
+    ? getProductLocationKey(mapProduct)
+    : shouldShowFilteredLocation
+      ? state.activeLocationKey || (firstResult ? getProductLocationKey(firstResult) : null)
+      : null;
+  updateMap(locationKey, mapProduct);
+  syncMapPanelVisibility();
+}
+
+function getNavigationResults() {
+  const query = normalize(els.navSearch.value);
+  if (!query && !state.activeLocationKey && state.category === "all") {
+    return [];
+  }
+
+  let results = state.products.slice();
+
+  if (!query && state.activeLocationKey) {
+    results = results.filter((product) => getProductLocationKey(product) === state.activeLocationKey);
+  }
+
+  if (query) {
+    results = results
+      .map((product) => ({ product, score: searchScore(product, query) }))
+      .filter((item) => item.score !== null)
+      .sort((a, b) => a.score - b.score || getProductLocationOrder(a.product) - getProductLocationOrder(b.product) || a.product.name.localeCompare(b.product.name))
+      .map((item) => item.product);
+  } else {
+    results.sort((a, b) => getProductLocationOrder(a) - getProductLocationOrder(b) || a.name.localeCompare(b.name));
+  }
+
+  return results.slice(0, 36);
+}
+
+function renderProductCard(product) {
+  const selectedVariant = getSelectedVariant(product);
+  const display = getProductDisplayDetails(product, selectedVariant);
+  const stockClass = display.inStock ? "in" : "out";
+  const stockText = display.inStock ? "In stock" : "Sold out";
+  const active = state.activeProductId === product.id;
+  const locationLabel = getProductLocationLabel(product);
+  const productImage = display.image
+    ? `<img class="product-image" src="${escapeHTML(getImageSource(display.image))}" alt="${escapeHTML(display.imageAlt)}" onerror="replaceBrokenProductImage(this)">`
+    : `<div class="missing-image">Image not available</div>`;
+  return `
+    <article class="product-card ${active ? "is-active" : ""}" data-product-id="${escapeHTML(product.id)}">
+      <div class="product-shot ${display.image ? "has-image" : "is-missing"}" data-aisle="${getProductShotSlot(product)}" aria-label="Product photo for ${escapeHTML(display.imageAlt)}">
+        ${productImage}
+      </div>
+      <div class="product-body">
+        <div>
+          <h2 class="product-name">${escapeHTML(product.name)}</h2>
+          ${selectedVariant ? `<span class="variant-selected-label">${escapeHTML(selectedVariant.name)}</span>` : ""}
+          <span class="stock-pill ${stockClass}">${stockText}</span>
+        </div>
+        ${renderVariantPicker(product, selectedVariant)}
+        <div class="meta-grid">
+          <div class="meta-item">
+            <span class="meta-label">Price</span>
+            <span class="meta-value">${CURRENCY.format(display.price)}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Location</span>
+            <span class="meta-value">${escapeHTML(locationLabel)}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Category</span>
+            <span class="meta-value" title="${escapeHTML(product.category)}">${escapeHTML(product.category)}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Status</span>
+            <span class="meta-value status-value ${stockClass}">${stockText}</span>
+          </div>
+        </div>
+        <div class="card-actions">
+          <button type="button" data-action="map" data-id="${escapeHTML(product.id)}">View Map</button>
+          <button type="button" data-action="list" data-id="${escapeHTML(product.id)}">List</button>
+          <button type="button" data-action="budget" data-id="${escapeHTML(product.id)}">Budget</button>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function renderVariantPicker(product, selectedVariant) {
+  const variants = getProductVariants(product);
+  if (!variants.length) return "";
+
+  return `
+    <div class="variant-picker" aria-label="Product variants for ${escapeHTML(product.name)}">
+      ${variants.map((variant) => renderVariantOption(product, variant, selectedVariant)).join("")}
+    </div>
+  `;
+}
+
+function renderVariantOption(product, variant, selectedVariant) {
+  const selected = selectedVariant?.id === variant.id;
+  const stockText = variant.inStock ? "In stock" : "Sold out";
+  const image = variant.image || product.image;
+  return `
+    <button class="variant-option ${selected ? "is-selected" : ""}" type="button" data-action="variant" data-id="${escapeHTML(product.id)}" data-variant-id="${escapeHTML(variant.id)}" aria-pressed="${selected ? "true" : "false"}">
+      <span class="variant-thumb ${image ? "" : "is-empty"}">
+        ${image ? `<img src="${escapeHTML(getImageSource(image))}" alt="${escapeHTML(`${product.name} ${variant.name}`)}" onerror="replaceBrokenVariantThumb(this)">` : "No image"}
+      </span>
+      <span class="variant-copy">
+        <span class="variant-name">${escapeHTML(variant.name)}</span>
+        <span class="variant-meta">${CURRENCY.format(variant.price)} &middot; ${stockText}</span>
+      </span>
+    </button>
+  `;
+}
+
+function handleProductAction(event) {
+  const button = event.target.closest("[data-action]");
+  if (!button) return;
+  const product = findProductById(button.dataset.id);
+  if (!product) return;
+
+  if (button.dataset.action === "map") {
+    openProductMap(product.id);
+  }
+
+  if (button.dataset.action === "variant") {
+    state.selectedVariants[product.id] = button.dataset.variantId;
+    state.activeProductId = product.id;
+    renderNavigation();
+  }
+
+  if (button.dataset.action === "list") {
+    const variant = getSelectedVariant(product);
+    addListItem(getProductDisplayName(product, variant), product.id, variant?.id || null);
+    setTab("list");
+  }
+
+  if (button.dataset.action === "budget") {
+    addBudgetItem(product.id, 1, getSelectedVariant(product)?.id || null);
+    setTab("budget");
+  }
+}
+
+function renderMapZones() {
+  els.mapLandmarks.innerHTML = MAP_LANDMARKS.map((landmark) => `
+    <div
+      class="map-landmark ${escapeHTML(landmark.type)}"
+      style="left:${landmark.left}%;top:${landmark.top}%;width:${landmark.width}%;height:${landmark.height}%"
+    >${escapeHTML(landmark.label)}</div>
+  `).join("");
+
+  els.mapZones.innerHTML = getLocationZones().map((zone) => `
+    <button
+      class="map-zone"
+      type="button"
+      data-location="${escapeHTML(zone.key)}"
+      data-zone-type="${escapeHTML(getZoneType(zone.key))}"
+      aria-label="${escapeHTML(zone.label)}"
+      title="${escapeHTML(zone.label)}"
+      style="left:${zone.left}%;top:${zone.top}%;width:${zone.width}%;height:${zone.height}%"
+    ><span class="map-zone-label">${renderLocationShortLabel(zone.key, zone.label)}</span></button>
+  `).join("");
+}
+
+function updateMap(locationKey, product) {
+  document.querySelectorAll(".map-zone").forEach((zone) => {
+    zone.classList.toggle("is-active", zone.dataset.location === locationKey);
+  });
+
+  if (!locationKey) {
+    els.mapTitle.textContent = "Location Guide";
+    els.mapRoute.textContent = "Search or tap a section to view details.";
+    els.mapGroups.classList.add("is-hidden");
+    els.mapGroups.innerHTML = "";
+    if (els.activeAisleBadge) els.activeAisleBadge.textContent = "All locations";
+    return;
+  }
+
+  const locationLabel = getLocationLabel(locationKey);
+  const category = product?.category || getCategoryByLocation(locationKey) || "Selected products";
+  els.mapTitle.textContent = locationLabel;
+  els.mapRoute.textContent = category;
+  renderMapGroups(locationKey);
+  if (els.activeAisleBadge) els.activeAisleBadge.textContent = locationLabel;
+}
+
+function renderMapGroups(locationKey) {
+  const groups = getLocationProductGroups(locationKey);
+  if (!groups.length) {
+    els.mapGroups.classList.add("is-hidden");
+    els.mapGroups.innerHTML = "";
+    return;
+  }
+
+  els.mapGroups.classList.remove("is-hidden");
+  els.mapGroups.innerHTML = `
+    <p class="map-groups-title">Categories:</p>
+    <ul class="map-group-list">
+      ${groups.map((group) => `<li>${escapeHTML(group)}</li>`).join("")}
+    </ul>
+  `;
+}
+
+function handleMapZone(event) {
+  const zone = event.target.closest("[data-location]");
+  if (!zone) return;
+  const locationKey = zone.dataset.location;
+  const category = getCategoryByLocation(locationKey);
+  state.activeLocationKey = locationKey;
+  state.category = category || "all";
+  state.activeProductId = null;
+  state.mapProductId = null;
+  els.navSearch.value = "";
+  renderCategoryChips();
+  renderNavigation();
+  closeMapPanel();
+}
+
+function navigateToProduct(productId, variantId = null) {
+  const product = findProductById(productId);
+  if (!product) return;
+  const variant = findProductVariant(product, variantId);
+  if (variant) state.selectedVariants[product.id] = variant.id;
+  state.activeProductId = product.id;
+  state.activeLocationKey = getProductLocationKey(product);
+  state.category = "all";
+  state.mapProductId = null;
+  els.navSearch.value = product.name;
+  setRole("customer");
+  setTab("navigation");
+  renderCategoryChips();
+  renderNavigation();
+}
+
+function openProductMap(productId) {
+  const product = findProductById(productId);
+  if (!product) return;
+  state.activeProductId = product.id;
+  state.activeLocationKey = getProductLocationKey(product);
+  state.category = "all";
+  state.mapProductId = product.id;
+  state.mapOpen = true;
+  renderCategoryChips();
+  renderNavigation();
+}
+
+function openMapPanel() {
+  state.mapProductId = null;
+  setMapPanelVisible(true);
+}
+
+function closeMapPanel() {
+  state.mapProductId = null;
+  setMapPanelVisible(false);
+}
+
+function setMapPanelVisible(isVisible) {
+  state.mapOpen = Boolean(isVisible);
+  syncMapPanelVisibility();
+}
+
+function syncMapPanelVisibility() {
+  syncMapPanelPlacement();
+  els.mapPanel?.classList.toggle("is-hidden", !state.mapOpen);
+  els.mapPanel?.setAttribute("aria-hidden", state.mapOpen ? "false" : "true");
+  if (els.closeMap) {
+    els.closeMap.hidden = !state.mapProductId;
+  }
+}
+
+function syncMapPanelPlacement() {
+  if (!els.mapPanel) return;
+  els.navResults?.classList.remove("has-inline-map");
+
+  if (state.mapProductId) {
+    const targetCard = [...els.navResults.querySelectorAll(".product-card")]
+      .find((card) => card.dataset.productId === state.mapProductId);
+    if (targetCard) {
+      targetCard.insertAdjacentElement("afterend", els.mapPanel);
+      els.navResults.classList.add("has-inline-map");
+      return;
+    }
+  }
+
+  if (els.navigationGrid && els.mapPanel.parentElement !== els.navigationGrid) {
+    els.navigationGrid.insertBefore(els.mapPanel, els.resultsPanel);
+  }
+}
+
+function handlePageKeydown(event) {
+  if (event.key === "Escape" && state.mapOpen) {
+    closeMapPanel();
+  }
+}
+
+function handleListSubmit(event) {
+  event.preventDefault();
+  addListItem(els.listInput.value);
+  els.listInput.value = "";
+  clearProductSuggestions("list");
+}
+
+function handleListSuggestionClick(event) {
+  const suggestion = event.target.closest("[data-suggestion-product]");
+  if (!suggestion) return;
+  const product = findProductById(suggestion.dataset.suggestionProduct);
+  if (!product) return;
+  const variant = findProductVariant(product, suggestion.dataset.suggestionVariant);
+  addListItem(getProductDisplayName(product, variant), product.id, variant?.id || null);
+  els.listInput.value = "";
+  clearProductSuggestions("list");
+}
+
+function addListItem(label, productId = null, variantId = null) {
+  const trimmed = label.trim();
+  if (!trimmed && !productId) return;
+  const entry = productId
+    ? { product: findProductById(productId), variant: null }
+    : findBestProductEntry(trimmed);
+  const product = entry?.product || null;
+  const variant = product ? findProductVariant(product, variantId) || entry?.variant || null : null;
+  const itemLabel = product ? getProductDisplayName(product, variant) : trimmed;
+  const duplicate = state.groceryList.some((item) =>
+    normalize(item.label) === normalize(itemLabel)
+    && !item.done
+    && (item.variantId || null) === (variant?.id || null)
+  );
+  if (duplicate) return;
+
+  state.groceryList.push({
+    id: createId("list"),
+    label: itemLabel,
+    productId: product?.id || null,
+    variantId: variant?.id || null,
+    done: false
+  });
+
+  saveJSON(STORAGE_KEYS.list, state.groceryList);
+  renderGroceryList();
+}
+
+function renderGroceryList() {
+  const pending = state.groceryList.filter((item) => !item.done).length;
+  els.listCount.textContent = `${pending} pending`;
+
+  els.groceryList.innerHTML = state.groceryList.length
+    ? state.groceryList.map(renderListItem).join("")
+    : `<div class="empty-state">Your list is empty.</div>`;
+
+  renderListRoute();
+}
+
+function renderListItem(item) {
+  const product = getListProduct(item);
+  const variant = product ? findProductVariant(product, item.variantId) : null;
+  const meta = product ? `${variant ? `${variant.name} | ` : ""}${product.category} | ${getProductLocationLabel(product)}` : "Custom item";
+  return `
+    <article class="list-item ${item.done ? "is-done" : ""}" data-id="${escapeHTML(item.id)}">
+      <input type="checkbox" ${item.done ? "checked" : ""} data-action="toggle-list" aria-label="Mark ${escapeHTML(item.label)} finished">
+      <div>
+        <span class="item-title">${escapeHTML(item.label)}</span>
+        <span class="item-meta">${escapeHTML(meta)}</span>
+      </div>
+      <div class="mini-actions">
+        ${product ? `<button class="mini-button" type="button" data-action="navigate-list" data-id="${escapeHTML(item.id)}">Find</button>` : ""}
+        <button class="mini-button" type="button" data-action="delete-list" data-id="${escapeHTML(item.id)}">Remove</button>
+      </div>
+    </article>
+  `;
+}
+
+function renderListRoute() {
+  const routeEntries = state.groceryList
+    .filter((item) => !item.done)
+    .map((item) => ({ item, product: getListProduct(item) }))
+    .filter((entry) => entry.product)
+    .sort((a, b) => getProductLocationOrder(a.product) - getProductLocationOrder(b.product) || a.product.name.localeCompare(b.product.name));
+
+  if (!routeEntries.length) {
+    els.listRoute.innerHTML = `<div class="empty-state">No mapped products on the list.</div>`;
+    return;
+  }
+
+  const grouped = new Map();
+  routeEntries.forEach(({ item, product }) => {
+    const key = getProductLocationKey(product);
+    const variant = findProductVariant(product, item.variantId);
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(getProductDisplayName(product, variant));
+  });
+
+  els.listRoute.innerHTML = [...grouped.entries()].map(([locationKey, names]) => `
+    <article class="route-card">
+      <strong>${escapeHTML(getLocationLabel(locationKey))}</strong>
+      <span class="item-meta">${escapeHTML(names.join(", "))}</span>
+    </article>
+  `).join("");
+}
+
+function handleListClick(event) {
+  const button = event.target.closest("[data-action]");
+  if (!button) return;
+  const item = state.groceryList.find((listItem) => listItem.id === button.dataset.id);
+  if (!item) return;
+
+  if (button.dataset.action === "navigate-list") {
+    const product = getListProduct(item);
+    if (product) navigateToProduct(product.id, item.variantId || null);
+  }
+
+  if (button.dataset.action === "delete-list") {
+    state.groceryList = state.groceryList.filter((listItem) => listItem.id !== item.id);
+    saveJSON(STORAGE_KEYS.list, state.groceryList);
+    renderGroceryList();
+  }
+}
+
+function handleListChange(event) {
+  const checkbox = event.target.closest("[data-action='toggle-list']");
+  if (!checkbox) return;
+  const itemNode = checkbox.closest(".list-item");
+  const item = state.groceryList.find((listItem) => listItem.id === itemNode.dataset.id);
+  if (!item) return;
+  item.done = checkbox.checked;
+  saveJSON(STORAGE_KEYS.list, state.groceryList);
+  renderGroceryList();
+}
+
+function clearFinishedItems() {
+  state.groceryList = state.groceryList.filter((item) => !item.done);
+  saveJSON(STORAGE_KEYS.list, state.groceryList);
+  renderGroceryList();
+}
+
+function handleBudgetSubmit(event) {
+  event.preventDefault();
+  const entry = findBestProductEntry(els.budgetInput.value);
+  const qty = Math.max(1, Number(els.budgetQty.value) || 1);
+  if (!entry?.product) return;
+  addBudgetItem(entry.product.id, qty, entry.variant?.id || null);
+  els.budgetInput.value = "";
+  els.budgetQty.value = "1";
+  clearProductSuggestions("budget");
+}
+
+function handleBudgetSuggestionClick(event) {
+  const suggestion = event.target.closest("[data-suggestion-product]");
+  if (!suggestion) return;
+  const product = findProductById(suggestion.dataset.suggestionProduct);
+  if (!product) return;
+  const variant = findProductVariant(product, suggestion.dataset.suggestionVariant);
+  const qty = Math.max(1, Number(els.budgetQty.value) || 1);
+  addBudgetItem(product.id, qty, variant?.id || null);
+  els.budgetInput.value = "";
+  els.budgetQty.value = "1";
+  clearProductSuggestions("budget");
+}
+
+function addBudgetItem(productId, qty, variantId = null) {
+  const product = findProductById(productId);
+  if (!product) return;
+  const variant = findProductVariant(product, variantId);
+  const existing = state.budget.find((item) => item.productId === product.id && (item.variantId || null) === (variant?.id || null));
+  if (existing) {
+    existing.qty += qty;
+  } else {
+    state.budget.push({ id: createId("budget"), productId: product.id, variantId: variant?.id || null, qty });
+  }
+  saveJSON(STORAGE_KEYS.budget, state.budget);
+  renderBudget();
+}
+
+function renderBudget() {
+  const products = state.budget
+    .map((item) => ({ item, product: findProductById(item.productId) }))
+    .filter((entry) => entry.product)
+    .map((entry) => ({ ...entry, variant: findProductVariant(entry.product, entry.item.variantId) }));
+  const total = products.reduce((sum, entry) => sum + getProductDisplayDetails(entry.product, entry.variant).price * entry.item.qty, 0);
+  const count = products.reduce((sum, entry) => sum + entry.item.qty, 0);
+
+  els.budgetCount.textContent = `${count} ${count === 1 ? "product" : "products"}`;
+  els.budgetTotal.textContent = CURRENCY.format(total);
+  els.budgetItems.innerHTML = products.length
+    ? products.map(renderBudgetItem).join("")
+    : `<div class="empty-state">No budget products selected.</div>`;
+}
+
+function renderBudgetItem({ item, product, variant }) {
+  const details = getProductDisplayDetails(product, variant);
+  return `
+    <article class="budget-item" data-id="${escapeHTML(item.id)}">
+      <div>
+        <span class="item-title">${escapeHTML(getProductDisplayName(product, variant))}</span>
+        <span class="item-meta">${escapeHTML(getProductLocationLabel(product))} | ${CURRENCY.format(details.price)} each</span>
+      </div>
+      <input class="qty-input" type="number" min="1" value="${item.qty}" data-action="budget-qty" aria-label="Quantity for ${escapeHTML(getProductDisplayName(product, variant))}">
+      <span class="line-total">${CURRENCY.format(details.price * item.qty)}</span>
+      <button class="mini-button" type="button" data-action="remove-budget" data-id="${escapeHTML(item.id)}">Remove</button>
+    </article>
+  `;
+}
+
+function renderProductSuggestions(target) {
+  const input = target === "budget" ? els.budgetInput : els.listInput;
+  const container = target === "budget" ? els.budgetSuggestions : els.listSuggestions;
+  const query = normalize(input.value);
+
+  if (!query) {
+    clearProductSuggestions(target);
+    return;
+  }
+
+  const suggestions = getProductSuggestions(query);
+  container.classList.remove("is-hidden");
+  container.innerHTML = suggestions.length
+    ? suggestions.map(renderProductSuggestion).join("")
+    : `<div class="suggestion-empty">No matching products found.</div>`;
+}
+
+function renderProductSuggestion({ product, variant }) {
+  const details = getProductDisplayDetails(product, variant);
+  const stockText = details.inStock ? "In stock" : "Sold out";
+  return `
+    <button class="product-suggestion" type="button" data-suggestion-product="${escapeHTML(product.id)}" ${variant ? `data-suggestion-variant="${escapeHTML(variant.id)}"` : ""}>
+      <span class="suggestion-main">
+        <strong>${escapeHTML(getProductDisplayName(product, variant))}</strong>
+        <span>${escapeHTML(getProductLocationLabel(product))}</span>
+      </span>
+      <span class="suggestion-meta">
+        <span>${CURRENCY.format(details.price)}</span>
+        <span class="stock-pill ${details.inStock ? "in" : "out"}">${stockText}</span>
+      </span>
+    </button>
+  `;
+}
+
+function clearProductSuggestions(target) {
+  const container = target === "budget" ? els.budgetSuggestions : els.listSuggestions;
+  container.classList.add("is-hidden");
+  container.innerHTML = "";
+}
+
+function handleBudgetClick(event) {
+  const button = event.target.closest("[data-action='remove-budget']");
+  if (!button) return;
+  state.budget = state.budget.filter((item) => item.id !== button.dataset.id);
+  saveJSON(STORAGE_KEYS.budget, state.budget);
+  renderBudget();
+}
+
+function handleBudgetChange(event) {
+  const input = event.target.closest("[data-action='budget-qty']");
+  if (!input) return;
+  const row = input.closest(".budget-item");
+  const item = state.budget.find((budgetItem) => budgetItem.id === row.dataset.id);
+  if (!item) return;
+  item.qty = Math.max(1, Number(input.value) || 1);
+  saveJSON(STORAGE_KEYS.budget, state.budget);
+  renderBudget();
+}
+
+function makeBudgetChecklist() {
+  state.budget.forEach((budgetItem) => {
+    const product = findProductById(budgetItem.productId);
+    if (product) {
+      const variant = findProductVariant(product, budgetItem.variantId);
+      addListItem(getProductDisplayName(product, variant), product.id, variant?.id || null);
+    }
+  });
+  setTab("list");
+}
+
+function clearBudget() {
+  state.budget = [];
+  saveJSON(STORAGE_KEYS.budget, state.budget);
+  renderBudget();
+}
+
+function renderAdminGate() {
+  els.adminLock.classList.toggle("is-hidden", state.adminUnlocked);
+  els.adminPanel.classList.toggle("is-hidden", !state.adminUnlocked);
+  if (!state.adminUnlocked) {
+    updateAdminLoginState();
+  }
+  if (state.adminUnlocked) {
+    renderAdminList();
+    renderMapSettings();
+  }
+}
+
+function handleAdminLogin(event) {
+  event.preventDefault();
+  const remainingMs = state.adminLockoutUntil - Date.now();
+  if (remainingMs > 0) {
+    showAdminLoginMessage(`Access temporarily locked. Try again in ${Math.ceil(remainingMs / 1000)} seconds.`, "error");
+    updateAdminLoginState();
+    return;
+  }
+
+  if (els.adminCode.value === getAdminPasscode()) {
+    state.adminUnlocked = true;
+    state.adminFailedAttempts = 0;
+    state.adminLockoutUntil = 0;
+    localStorage.setItem(STORAGE_KEYS.admin, "true");
+    els.adminCode.value = "";
+    showAdminLoginMessage("", "");
+    renderAdminGate();
+  } else {
+    state.adminFailedAttempts += 1;
+    els.adminCode.value = "";
+    const attemptsLeft = ADMIN_CONFIG.maxFailedAttempts - state.adminFailedAttempts;
+    if (attemptsLeft <= 0) {
+      state.adminFailedAttempts = 0;
+      state.adminLockoutUntil = Date.now() + ADMIN_CONFIG.lockoutMs;
+      showAdminLoginMessage(`Too many incorrect attempts. Try again in ${Math.ceil(ADMIN_CONFIG.lockoutMs / 1000)} seconds.`, "error");
+      updateAdminLoginState();
+      return;
+    }
+    showAdminLoginMessage(`Incorrect passcode. ${attemptsLeft} ${attemptsLeft === 1 ? "attempt" : "attempts"} remaining.`, "error");
+  }
+}
+
+function lockAdmin() {
+  state.adminUnlocked = false;
+  localStorage.removeItem(STORAGE_KEYS.admin);
+  renderAdminGate();
+}
+
+function getAdminPasscode() {
+  return localStorage.getItem(STORAGE_KEYS.adminPasscode) || ADMIN_CONFIG.defaultPasscode;
+}
+
+function updateAdminLoginState() {
+  const locked = state.adminLockoutUntil > Date.now();
+  els.adminCode.disabled = locked;
+  const submit = els.adminLogin.querySelector("button[type='submit']");
+  if (submit) submit.disabled = locked;
+  if (!locked) return;
+
+  window.setTimeout(() => {
+    if (state.adminUnlocked) return;
+    if (state.adminLockoutUntil > Date.now()) {
+      updateAdminLoginState();
+      return;
+    }
+    showAdminLoginMessage("You can try again now.", "success");
+    els.adminCode.disabled = false;
+    if (submit) submit.disabled = false;
+  }, Math.min(state.adminLockoutUntil - Date.now(), 1000));
+}
+
+function showAdminLoginMessage(message, type) {
+  showAdminMessage(els.adminLoginMessage, message, type);
+}
+
+function handlePasscodeChange(event) {
+  event.preventDefault();
+  const current = els.currentPasscode.value;
+  const next = els.newPasscode.value.trim();
+  const confirm = els.confirmPasscode.value.trim();
+
+  if (current !== getAdminPasscode()) {
+    showAdminMessage(els.passcodeMessage, "Current passcode is incorrect.", "error");
+    setPasscodeStatus("Check current passcode");
+    return;
+  }
+
+  if (next.length < ADMIN_CONFIG.minPasscodeLength) {
+    showAdminMessage(els.passcodeMessage, `New passcode must be at least ${ADMIN_CONFIG.minPasscodeLength} characters.`, "error");
+    setPasscodeStatus("Too short");
+    return;
+  }
+
+  if (next !== confirm) {
+    showAdminMessage(els.passcodeMessage, "New passcodes do not match.", "error");
+    setPasscodeStatus("Confirmation needed");
+    return;
+  }
+
+  localStorage.setItem(STORAGE_KEYS.adminPasscode, next);
+  els.passcodeForm.reset();
+  showAdminMessage(els.passcodeMessage, "Admin passcode updated.", "success");
+  setPasscodeStatus("Updated");
+  window.setTimeout(() => setPasscodeStatus("Protected"), 1600);
+}
+
+function setPasscodeStatus(statusText) {
+  if (els.passcodeStatus) els.passcodeStatus.textContent = statusText;
+}
+
+function showAdminMessage(node, message, type) {
+  if (!node) return;
+  node.textContent = message;
+  node.classList.toggle("is-hidden", !message);
+  node.classList.toggle("is-error", type === "error");
+  node.classList.toggle("is-success", type === "success");
+}
+
+function renderAdminList() {
+  const query = normalize(els.adminSearch.value);
+  let products = state.products.slice();
+
+  if (query) {
+    products = products
+      .map((product) => ({ product, score: searchScore(product, query) }))
+      .filter((entry) => entry.score !== null)
+      .sort((a, b) => a.score - b.score || a.product.name.localeCompare(b.product.name))
+      .map((entry) => entry.product);
+  } else {
+    products.sort((a, b) => getProductLocationOrder(a) - getProductLocationOrder(b) || a.name.localeCompare(b.name));
+  }
+
+  els.adminCount.textContent = `${products.length} items`;
+  els.adminProductList.innerHTML = products.slice(0, 80).map(renderAdminRow).join("");
+}
+
+function renderAdminRow(product) {
+  const selected = state.editingProductId === product.id;
+  const variantCount = getProductVariants(product).length;
+  return `
+    <article class="admin-row ${selected ? "is-selected" : ""}" data-id="${escapeHTML(product.id)}">
+      <div class="admin-row-main">
+        <span class="admin-row-title">${escapeHTML(product.name)}</span>
+        <span class="item-meta">${escapeHTML(getProductLocationLabel(product))} | ${CURRENCY.format(product.price)} | ${product.inStock ? "In stock" : "Sold out"}${variantCount ? ` | ${variantCount} ${variantCount === 1 ? "variant" : "variants"}` : ""}</span>
+      </div>
+      <button class="mini-button" type="button" data-action="edit-admin" data-id="${escapeHTML(product.id)}">${selected ? "Editing" : "Edit"}</button>
+    </article>
+    ${selected ? renderInlineAdminEditor(product) : ""}
+  `;
+}
+
+function renderInlineAdminEditor(product) {
+  return `
+    <article class="admin-inline-editor" data-editor-for="${escapeHTML(product.id)}">
+      <form class="admin-form" data-inline-edit="${escapeHTML(product.id)}">
+        <label>Name</label>
+        <input name="name" type="text" value="${escapeHTML(product.name)}">
+
+        <div class="inline-fields">
+          <div class="form-pair">
+            <label>Price</label>
+            <input name="price" type="number" min="0" value="${escapeHTML(product.price)}">
+          </div>
+          <div class="form-pair">
+            <label>Availability</label>
+            <select name="stock">
+              <option value="true" ${product.inStock ? "selected" : ""}>In stock</option>
+              <option value="false" ${!product.inStock ? "selected" : ""}>Sold out</option>
+            </select>
+          </div>
+        </div>
+
+        <label>Location</label>
+        <select name="location">${renderLocationSelectOptions(getProductLocationKey(product))}</select>
+
+        <label>Category</label>
+        <input name="category" type="text" value="${escapeHTML(product.category)}">
+
+        <label>Product Image</label>
+        <input name="image" type="text" value="${escapeHTML(product.image || "")}" placeholder="Paste image URL, copied image, or local path" data-inline-image>
+        <input type="file" accept="image/*" aria-label="Upload product image" data-inline-image-upload>
+        ${renderImagePreview(product.image)}
+
+        <section class="variant-editor">
+          <div class="variant-editor-heading">
+            <div>
+              <strong>Product Variants</strong>
+              <span class="item-meta">Add flavors or versions with their own price, image, and stock.</span>
+            </div>
+            <button class="mini-button" type="button" data-action="add-variant">Add Variant</button>
+          </div>
+          <div class="variant-editor-list" data-variant-list>
+            ${getProductVariants(product).map(renderVariantEditorRow).join("") || `<div class="empty-state compact">No variants added.</div>`}
+          </div>
+        </section>
+
+        <div class="admin-inline-actions">
+          <button class="primary-button" type="submit">Save Changes</button>
+          <button class="ghost-button" type="button" data-action="cancel-admin-edit">Cancel</button>
+          <button class="danger-button remove-product-button" type="button" data-action="remove-admin-product" data-id="${escapeHTML(product.id)}">Remove Product</button>
+        </div>
+      </form>
+    </article>
+  `;
+}
+
+function renderVariantEditorRow(variant = {}) {
+  return `
+    <article class="variant-editor-row" data-variant-row data-variant-id="${escapeHTML(variant.id || createId("variant"))}">
+      <div class="inline-fields">
+        <div class="form-pair">
+          <label>Variant name/flavor</label>
+          <input type="text" value="${escapeHTML(variant.name || "")}" placeholder="Original" data-variant-name>
+        </div>
+        <div class="form-pair">
+          <label>Price</label>
+          <input type="number" min="0" value="${escapeHTML(variant.price ?? "")}" placeholder="Price" data-variant-price>
+        </div>
+      </div>
+      <div class="inline-fields">
+        <div class="form-pair">
+          <label>Stock status</label>
+          <select data-variant-stock>
+            <option value="true" ${variant.inStock !== false ? "selected" : ""}>In stock</option>
+            <option value="false" ${variant.inStock === false ? "selected" : ""}>Sold out</option>
+          </select>
+        </div>
+        <div class="form-pair">
+          <label>Image URL</label>
+          <input type="text" value="${escapeHTML(variant.image || "")}" placeholder="Variant image URL" data-inline-variant-image>
+        </div>
+      </div>
+      ${renderImagePreview(variant.image).replace("data-inline-image-preview", "data-variant-image-preview")}
+      <button class="mini-button danger-mini-button" type="button" data-action="remove-variant">Delete Variant</button>
+    </article>
+  `;
+}
+
+function handleAdminListClick(event) {
+  const addVariant = event.target.closest("[data-action='add-variant']");
+  if (addVariant) {
+    const form = addVariant.closest("[data-inline-edit]");
+    const list = form?.querySelector("[data-variant-list]");
+    if (!list) return;
+    list.querySelector(".empty-state")?.remove();
+    list.insertAdjacentHTML("beforeend", renderVariantEditorRow());
+    return;
+  }
+
+  const removeVariant = event.target.closest("[data-action='remove-variant']");
+  if (removeVariant) {
+    const list = removeVariant.closest("[data-variant-list]");
+    removeVariant.closest("[data-variant-row]")?.remove();
+    if (list && !list.querySelector("[data-variant-row]")) {
+      list.innerHTML = `<div class="empty-state compact">No variants added.</div>`;
+    }
+    return;
+  }
+
+  const cancel = event.target.closest("[data-action='cancel-admin-edit']");
+  if (cancel) {
+    state.editingProductId = null;
+    renderAdminList();
+    return;
+  }
+
+  const removeProduct = event.target.closest("[data-action='remove-admin-product']");
+  if (removeProduct) {
+    removeAdminProduct(removeProduct.dataset.id);
+    return;
+  }
+
+  const button = event.target.closest("[data-action='edit-admin']");
+  if (!button) return;
+  state.editingProductId = button.dataset.id;
+  renderAdminList();
+}
+
+function saveInlineAdminProduct(event) {
+  const form = event.target.closest("[data-inline-edit]");
+  if (!form) return;
+  event.preventDefault();
+  const product = findProductById(form.dataset.inlineEdit);
+  if (!product) return;
+
+  product.name = form.elements.name.value.trim() || product.name;
+  product.price = Math.max(0, Number(form.elements.price.value) || 0);
+  setProductLocation(product, form.elements.location.value);
+  product.category = form.elements.category.value.trim() || product.category;
+  product.image = form.elements.image.value.trim();
+  product.inStock = form.elements.stock.value === "true";
+  product.variants = collectVariantRows(form, product);
+  product.id = product.id || slugify(product.name);
+
+  state.editingProductId = null;
+  persistProducts();
+  renderAfterInventoryChange("Saved");
+}
+
+function removeAdminProduct(productId) {
+  const product = findProductById(productId);
+  if (!product) return;
+  const confirmed = window.confirm("Are you sure you want to remove this product? This cannot be undone.");
+  if (!confirmed) return;
+
+  state.products = state.products.filter((item) => item.id !== product.id);
+  if (DEFAULT_PRODUCT_IDS.has(product.id) && !state.deletedProductIds.includes(product.id)) {
+    state.deletedProductIds.push(product.id);
+  }
+  state.groceryList = state.groceryList.filter((item) => item.productId !== product.id);
+  state.budget = state.budget.filter((item) => item.productId !== product.id);
+  delete state.selectedVariants[product.id];
+
+  if (state.activeProductId === product.id) state.activeProductId = null;
+  if (state.mapProductId === product.id) state.mapProductId = null;
+  state.editingProductId = null;
+
+  persistProducts();
+  saveJSON(STORAGE_KEYS.deletedProducts, state.deletedProductIds);
+  saveJSON(STORAGE_KEYS.list, state.groceryList);
+  saveJSON(STORAGE_KEYS.budget, state.budget);
+  renderAfterInventoryChange("Removed");
+}
+
+function handleInlineAdminInput(event) {
+  const variantImage = event.target.closest("[data-inline-variant-image]");
+  if (variantImage) {
+    const row = variantImage.closest("[data-variant-row]");
+    updateImagePreview(row.querySelector("[data-variant-image-preview]"), variantImage.value);
+    return;
+  }
+
+  const input = event.target.closest("[data-inline-image]");
+  if (!input) return;
+  const form = input.closest("[data-inline-edit]");
+  updateImagePreview(form.querySelector("[data-inline-image-preview]"), input.value);
+}
+
+function handleInlineAdminChange(event) {
+  const upload = event.target.closest("[data-inline-image-upload]");
+  if (!upload) return;
+  const form = upload.closest("[data-inline-edit]");
+  handleImageUpload(upload, form.elements.image, form.querySelector("[data-inline-image-preview]"));
+}
+
+function handleInlineImagePaste(event) {
+  const form = event.target.closest("[data-inline-edit]");
+  if (!form) return;
+  const variantImage = event.target.closest("[data-inline-variant-image]");
+  if (variantImage) {
+    const row = variantImage.closest("[data-variant-row]");
+    handleImagePaste(event, variantImage, row.querySelector("[data-variant-image-preview]"));
+    return;
+  }
+
+  const isImageField = event.target.closest("[data-inline-image]");
+  if (!isImageField) return;
+  handleImagePaste(
+    event,
+    form.elements.image,
+    form.querySelector("[data-inline-image-preview]"),
+    form.querySelector("[data-inline-image-upload]")
+  );
+}
+
+function collectVariantRows(form, product) {
+  const usedIds = new Set();
+  return [...form.querySelectorAll("[data-variant-row]")]
+    .map((row) => {
+      const name = row.querySelector("[data-variant-name]")?.value.trim() || "";
+      if (!name) return null;
+      const id = uniqueVariantId(row.dataset.variantId || slugify(name), usedIds);
+      const priceValue = row.querySelector("[data-variant-price]")?.value;
+      const price = priceValue === "" ? product.price : Math.max(0, Number(priceValue));
+      return {
+        id,
+        name,
+        price: Number.isFinite(price) ? price : product.price,
+        image: row.querySelector("[data-inline-variant-image]")?.value.trim() || "",
+        inStock: row.querySelector("[data-variant-stock]")?.value !== "false"
+      };
+    })
+    .filter(Boolean);
+}
+
+function addAdminProduct(event) {
+  event.preventDefault();
+  const name = els.newName.value.trim();
+  if (!name) return;
+  const id = uniqueProductId(slugify(name));
+  state.products.push({
+    id,
+    name,
+    price: Math.max(0, Number(els.newPrice.value) || 0),
+    ...createLocationFields(els.newLocation.value || "aisle-1"),
+    category: els.newCategory.value.trim() || "General",
+    image: els.newImage.value.trim(),
+    inStock: true
+  });
+
+  els.newName.value = "";
+  els.newPrice.value = "";
+  els.newLocation.value = "aisle-1";
+  els.newCategory.value = "";
+  els.newImage.value = "";
+  els.newImageUpload.value = "";
+  updateImagePreview(els.newImagePreview, "");
+  state.editingProductId = null;
+  persistProducts();
+  renderAfterInventoryChange("Added");
+}
+
+function saveMapSection(event) {
+  event.preventDefault();
+  const name = els.mapSectionName.value.trim();
+  const type = els.mapSectionType.value;
+  const label = els.mapSectionLabel.value.trim() || name;
+  const categories = parseCategoryList(els.mapSectionCategories.value);
+
+  if (!name) {
+    showAdminMessage(els.mapSectionMessage, "Enter a section name before saving.", "error");
+    return;
+  }
+
+  const section = createMapSection({
+    name,
+    type,
+    label,
+    categories
+  });
+
+  state.mapSections.push(section);
+  persistMapSections();
+  els.mapSectionName.value = "";
+  els.mapSectionLabel.value = "";
+  els.mapSectionCategories.value = "";
+  showAdminMessage(els.mapSectionMessage, "Map section saved.", "success");
+  renderAfterMapSettingsChange("Saved");
+}
+
+function renderMapSettings() {
+  if (!els.mapSectionList) return;
+  const sections = state.mapSections.slice().sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+  els.mapSectionStatus.textContent = `${sections.length} saved`;
+  els.mapSectionList.innerHTML = sections.length
+    ? sections.map(renderMapSectionCard).join("")
+    : `<div class="empty-state compact">No custom map sections saved yet.</div>`;
+}
+
+function renderMapSectionCard(section) {
+  const categories = section.categories?.length ? section.categories.join(", ") : "No categories set";
+  return `
+    <article class="map-section-card">
+      <div>
+        <strong>${escapeHTML(section.name)}</strong>
+        <span class="item-meta">${escapeHTML(section.label)} | ${escapeHTML(titleCase(section.type))}</span>
+      </div>
+      <span class="section-type-chip" data-section-type="${escapeHTML(section.type)}">${escapeHTML(section.label)}</span>
+      <p>${escapeHTML(categories)}</p>
+    </article>
+  `;
+}
+
+function renderAfterMapSettingsChange(statusText) {
+  renderMapZones();
+  renderLocationOptions();
+  renderMapSettings();
+  renderNavigation();
+  renderAdminList();
+  els.mapSectionStatus.textContent = statusText;
+  window.setTimeout(renderMapSettings, 1600);
+}
+
+function handleImageUpload(fileInput, textInput, previewNode) {
+  const file = fileInput.files?.[0];
+  if (!file) return;
+  if (!file.type.startsWith("image/")) {
+    fileInput.value = "";
+    updateImagePreview(previewNode, textInput.value);
+    return;
+  }
+
+  previewNode.classList.remove("is-empty");
+  previewNode.textContent = "Loading image...";
+  readImageFileIntoField(file, textInput, previewNode);
+}
+
+function handleImagePaste(event, textInput, previewNode, fileInput = null) {
+  if (!event.clipboardData || !textInput || !previewNode) return;
+
+  const imageFile = getClipboardImageFile(event.clipboardData);
+  if (imageFile) {
+    event.preventDefault();
+    if (fileInput) fileInput.value = "";
+    previewNode.classList.remove("is-empty");
+    previewNode.textContent = "Loading image...";
+    readImageFileIntoField(imageFile, textInput, previewNode);
+    return;
+  }
+
+  const imageValue = getClipboardImageValue(event.clipboardData);
+  if (!imageValue) return;
+  event.preventDefault();
+  if (fileInput) fileInput.value = "";
+  textInput.value = imageValue;
+  updateImagePreview(previewNode, imageValue);
+}
+
+function getClipboardImageFile(clipboardData) {
+  const files = [...(clipboardData.files || [])];
+  const file = files.find((item) => item.type?.startsWith("image/"));
+  if (file) return file;
+
+  return [...(clipboardData.items || [])]
+    .filter((item) => item.kind === "file" && item.type?.startsWith("image/"))
+    .map((item) => item.getAsFile())
+    .find(Boolean) || null;
+}
+
+function getClipboardImageValue(clipboardData) {
+  const uri = cleanPastedImageValue(clipboardData.getData("text/uri-list"));
+  if (uri) return uri;
+
+  const plainText = cleanPastedImageValue(clipboardData.getData("text/plain"));
+  if (plainText) return plainText;
+
+  const html = clipboardData.getData("text/html");
+  const imageSource = html.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1];
+  return imageSource ? decodeHTML(cleanPastedImageValue(imageSource)) : "";
+}
+
+function cleanPastedImageValue(value) {
+  return String(value || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => line && !line.startsWith("#")) || "";
+}
+
+function decodeHTML(value) {
+  const parser = document.createElement("textarea");
+  parser.innerHTML = value;
+  return parser.value;
+}
+
+function readImageFileIntoField(file, textInput, previewNode) {
+  const reader = new FileReader();
+  reader.addEventListener("load", () => {
+    textInput.value = String(reader.result || "");
+    updateImagePreview(previewNode, textInput.value);
+  });
+  reader.addEventListener("error", () => {
+    updateImagePreview(previewNode, textInput.value);
+  });
+  reader.readAsDataURL(file);
+}
+
+function updateImagePreview(previewNode, imageValue) {
+  const image = String(imageValue || "").trim();
+  previewNode.classList.toggle("is-empty", !image);
+  previewNode.innerHTML = image
+    ? renderPreviewImage(image)
+    : "Image preview";
+}
+
+function renderImagePreview(imageValue) {
+  const image = String(imageValue || "").trim();
+  return `
+    <div class="image-preview ${image ? "" : "is-empty"}" data-inline-image-preview>
+      ${image ? renderPreviewImage(image) : "Image preview"}
+    </div>
+  `;
+}
+
+function renderPreviewImage(image) {
+  return `<img src="${escapeHTML(getImageSource(image))}" alt="Product image preview" onerror="replaceBrokenPreviewImage(this)">`;
+}
+
+function getImageSource(imageValue) {
+  const image = String(imageValue || "").trim();
+  if (!image) return "";
+  if (/^(https?:|data:|file:|blob:)/i.test(image)) return image;
+  if (/^[a-zA-Z]:[\\/]/.test(image)) {
+    return `file:///${image.replaceAll("\\", "/")}`;
+  }
+  return image;
+}
+
+function createMissingImageNode() {
+  const node = document.createElement("div");
+  node.className = "missing-image";
+  node.textContent = "Image not available";
+  return node;
+}
+
+function replaceBrokenProductImage(imageNode) {
+  const shot = imageNode.closest(".product-shot");
+  shot?.classList.remove("has-image");
+  shot?.classList.add("is-missing");
+  imageNode.replaceWith(createMissingImageNode());
+}
+
+function replaceBrokenVariantThumb(imageNode) {
+  const thumb = imageNode.closest(".variant-thumb");
+  if (!thumb) return;
+  thumb.classList.add("is-empty");
+  thumb.textContent = "No image";
+}
+
+function replaceBrokenPreviewImage(imageNode) {
+  const preview = imageNode.closest(".image-preview");
+  if (!preview) return;
+  preview.classList.add("is-empty");
+  preview.textContent = "Image not available";
+}
+
+function resetInventory() {
+  const ok = window.confirm("Reset inventory, prices, locations, and availability to the defaults?");
+  if (!ok) return;
+  state.editingProductId = null;
+  state.deletedProductIds = [];
+  localStorage.removeItem(STORAGE_KEYS.deletedProducts);
+  state.products = DEFAULT_PRODUCTS.map(normalizeProduct);
+  persistProducts();
+  renderAfterInventoryChange("Reset");
+}
+
+function renderAfterInventoryChange(statusText) {
+  renderProductOptions();
+  renderCategoryChips();
+  renderNavigation();
+  renderGroceryList();
+  renderBudget();
+  renderAdminList();
+  els.adminStatus.textContent = statusText;
+  window.setTimeout(() => {
+    els.adminStatus.textContent = "Ready";
+  }, 1600);
+}
+
+function renderLocationOptions(select = null, selectedKey = "aisle-1") {
+  const options = renderLocationSelectOptions(selectedKey);
+
+  const selects = select ? [select] : [els.newLocation].filter(Boolean);
+  selects.forEach((locationSelect) => {
+    locationSelect.innerHTML = options;
+    locationSelect.value = selectedKey;
+  });
+}
+
+function renderLocationSelectOptions(selectedKey = "aisle-1") {
+  return getLocationZones()
+    .slice()
+    .sort((a, b) => a.order - b.order)
+    .map((location) => `<option value="${escapeHTML(location.key)}" ${location.key === selectedKey ? "selected" : ""}>${escapeHTML(location.label)}</option>`)
+    .join("");
+}
+
+function getProductLocations() {
+  const byLocation = new Map();
+  state.products.forEach((product) => {
+    const key = getProductLocationKey(product);
+    if (!byLocation.has(key)) {
+      byLocation.set(key, {
+        key,
+        label: getLocationLabel(key),
+        category: product.category,
+        order: getLocationOrder(key)
+      });
+    }
+  });
+
+  return [...byLocation.values()].sort((a, b) => a.order - b.order || a.label.localeCompare(b.label));
+}
+
+function getCategoryByLocation(locationKey) {
+  return state.products.find((product) => getProductLocationKey(product) === locationKey)?.category || null;
+}
+
+function getLocationProductGroups(locationKey) {
+  const customGroups = getLocationZone(locationKey)?.categories;
+  if (customGroups?.length) {
+    return customGroups;
+  }
+
+  if (LOCATION_PRODUCT_GROUPS[locationKey]) {
+    return LOCATION_PRODUCT_GROUPS[locationKey];
+  }
+
+  return [...new Set(
+    state.products
+      .filter((product) => getProductLocationKey(product) === locationKey)
+      .map((product) => cleanGroupLabel(product.category))
+      .filter(Boolean)
+  )].slice(0, 6);
+}
+
+function cleanGroupLabel(category) {
+  return String(category || "")
+    .replace(/^Meat\s*-\s*/i, "")
+    .replace(/^Frozen\s*/i, "")
+    .replace(/^Wall\s*/i, "")
+    .trim();
+}
+
+function getProductLocationKey(product) {
+  if (product.locationKey) return product.locationKey;
+  if (product.aisle) return `aisle-${product.aisle}`;
+  return "aisle-1";
+}
+
+function getProductLocationLabel(product) {
+  return getLocationLabel(getProductLocationKey(product));
+}
+
+function getLocationZones() {
+  return [...LOCATION_ZONES, ...state.mapSections];
+}
+
+function getLocationZone(locationKey) {
+  return LOCATION_BY_KEY.get(locationKey) || state.mapSections.find((section) => section.key === locationKey) || null;
+}
+
+function getProductVariants(product) {
+  return Array.isArray(product?.variants) ? product.variants : [];
+}
+
+function findProductVariant(product, variantId) {
+  if (!variantId) return null;
+  return getProductVariants(product).find((variant) => variant.id === variantId) || null;
+}
+
+function getSelectedVariant(product) {
+  const variants = getProductVariants(product);
+  if (!variants.length) return null;
+  return findProductVariant(product, state.selectedVariants[product.id]) || variants[0];
+}
+
+function getProductDisplayDetails(product, variant = null) {
+  return {
+    variant,
+    price: variant ? variant.price : product.price,
+    image: variant?.image || product.image || "",
+    inStock: variant ? variant.inStock : product.inStock,
+    imageAlt: getProductDisplayName(product, variant)
+  };
+}
+
+function getProductDisplayName(product, variant = null) {
+  return variant ? `${product.name} - ${variant.name}` : product.name;
+}
+
+function getLocationLabel(locationKey) {
+  return getLocationZone(locationKey)?.label || titleCase(locationKey.replaceAll("-", " "));
+}
+
+function getLocationShortLabel(locationKey) {
+  const zone = getLocationZone(locationKey);
+  if (zone?.shortLabel) return zone.shortLabel;
+  const [type, number] = String(locationKey).split("-");
+  const prefix = {
+    meat: "M",
+    frozen: "F",
+    aisle: "A",
+    wall: "W"
+  }[type] || "";
+  return `${prefix}${number || ""}` || getLocationLabel(locationKey);
+}
+
+function renderLocationShortLabel(locationKey, fallbackLabel = "") {
+  const shortLabel = getLocationShortLabel(locationKey) || fallbackLabel;
+  const match = /^([A-Z])(\d+)$/.exec(shortLabel);
+  if (!match) return escapeHTML(shortLabel);
+  return `<span class="map-zone-letter">${escapeHTML(match[1])}</span><span class="map-zone-number">${escapeHTML(match[2])}</span>`;
+}
+
+function getLocationOrder(locationKey) {
+  return getLocationZone(locationKey)?.order || 999;
+}
+
+function getZoneType(locationKey) {
+  const sectionType = getLocationZone(locationKey)?.type;
+  if (sectionType) return sectionType;
+  if (locationKey.startsWith("meat")) return "meat";
+  if (locationKey.startsWith("frozen")) return "frozen";
+  if (locationKey.startsWith("wall")) return "wall";
+  return "aisle";
+}
+
+function focusMapOnMobile() {
+  if (!window.matchMedia("(max-width: 768px)").matches) return;
+  window.clearTimeout(state.mapFocusTimer);
+  state.mapFocusTimer = window.setTimeout(() => {
+    const mapPanel = document.querySelector(".map-panel");
+    if (!mapPanel) return;
+    const headerOffset = (document.querySelector(".topbar")?.getBoundingClientRect().height || 0) + 10;
+    const top = mapPanel.getBoundingClientRect().top + window.scrollY - headerOffset;
+    window.scrollTo({ top, behavior: "smooth" });
+  }, 260);
+}
+
+function getProductLocationOrder(product) {
+  return getLocationOrder(getProductLocationKey(product));
+}
+
+function getProductShotSlot(product) {
+  const key = getProductLocationKey(product);
+  if (key.startsWith("meat")) return 7;
+  if (key.startsWith("frozen")) return 6;
+  if (key.startsWith("wall")) return 4;
+  const aisle = Number(key.replace("aisle-", ""));
+  return Number.isFinite(aisle) ? aisle : 1;
+}
+
+function createLocationFields(locationKey) {
+  const match = /^aisle-(\d+)$/.exec(locationKey);
+  return {
+    locationKey,
+    aisle: match ? Number(match[1]) : null
+  };
+}
+
+function setProductLocation(product, locationKey) {
+  const fields = createLocationFields(locationKey || "aisle-1");
+  product.locationKey = fields.locationKey;
+  product.aisle = fields.aisle;
+}
+
+function findProductById(id) {
+  return state.products.find((product) => product.id === id) || null;
+}
+
+function findBestProduct(value) {
+  return findBestProductEntry(value)?.product || null;
+}
+
+function findBestProductEntry(value) {
+  const query = normalize(value);
+  if (!query) return null;
+  const exact = state.products.find((product) => normalize(product.name) === query);
+  if (exact) return { product: exact, variant: getSelectedVariant(exact), score: 0 };
+  const exactVariant = state.products
+    .flatMap((product) => getProductVariants(product).map((variant) => ({ product, variant })))
+    .find(({ product, variant }) =>
+      normalize(getProductDisplayName(product, variant)) === query || normalize(variant.name) === query
+    );
+  if (exactVariant) return { ...exactVariant, score: 0 };
+  return getProductSuggestions(query)[0] || null;
+}
+
+function getProductSuggestions(query) {
+  const cleanQuery = normalize(query);
+  if (!cleanQuery) return [];
+  const productNameMatched = (product) => {
+    const name = normalize(product.name);
+    return name === cleanQuery || name.startsWith(cleanQuery) || name.includes(cleanQuery);
+  };
+  const suggestions = [];
+
+  state.products.forEach((product) => {
+    const productScore = searchScore(product, cleanQuery);
+    if (productScore === null) return;
+    const variants = getProductVariants(product);
+
+    if (variants.length) {
+      const matchedVariants = variants
+        .map((variant) => ({
+          product,
+          variant,
+          score: getVariantSuggestionScore(product, variant, cleanQuery)
+        }))
+        .filter((entry) => entry.score !== null || productNameMatched(product))
+        .map((entry) => ({
+          ...entry,
+          score: entry.score ?? productScore + 0.25
+        }));
+
+      suggestions.push(...matchedVariants);
+      return;
+    }
+
+    suggestions.push({ product, variant: null, score: productScore });
+  });
+
+  return suggestions
+    .sort((a, b) =>
+      a.score - b.score
+      || getProductLocationOrder(a.product) - getProductLocationOrder(b.product)
+      || a.product.name.localeCompare(b.product.name)
+      || (a.variant?.name || "").localeCompare(b.variant?.name || "")
+    )
+    .slice(0, 8);
+}
+
+function getVariantSuggestionScore(product, variant, query) {
+  const variantName = normalize(variant.name);
+  const displayName = normalize(getProductDisplayName(product, variant));
+  if (displayName === query || variantName === query) return 0;
+  if (displayName.startsWith(query) || variantName.startsWith(query)) return 1;
+  if (displayName.includes(query) || variantName.includes(query)) return 2;
+  return null;
+}
+
+function applyQueryVariantSelection(products, query) {
+  products.forEach((product) => {
+    const variant = getBestVariantForQuery(product, query);
+    if (variant) state.selectedVariants[product.id] = variant.id;
+  });
+}
+
+function getBestVariantForQuery(product, query) {
+  const cleanQuery = normalize(query);
+  if (!cleanQuery) return null;
+  const productName = normalize(product.name);
+  if (productName === cleanQuery || productName.startsWith(cleanQuery)) return null;
+
+  return getProductVariants(product)
+    .map((variant) => ({
+      variant,
+      score: getVariantSuggestionScore(product, variant, cleanQuery)
+    }))
+    .filter((entry) => entry.score !== null)
+    .sort((a, b) => a.score - b.score || a.variant.name.localeCompare(b.variant.name))[0]?.variant || null;
+}
+
+function getListProduct(item) {
+  return findProductById(item.productId) || findBestProduct(item.label);
+}
+
+function searchScore(product, query) {
+  const name = normalize(product.name);
+  const category = normalize(product.category);
+  const location = normalize(getProductLocationLabel(product));
+  const variants = normalize(getProductVariants(product).map((variant) => variant.name).join(" "));
+  const haystack = `${name} ${variants} ${category} ${location}`;
+  if (name === query) return 0;
+  if (name.startsWith(query)) return 1;
+  if (name.includes(query)) return 2;
+  const variantScore = getProductVariantSearchScore(product, query);
+  if (variantScore !== null) return variantScore;
+  if (location.includes(query)) return 3;
+  if (category.includes(query)) return 4;
+  if (haystack.includes(query)) return 4;
+  return null;
+}
+
+function getProductVariantSearchScore(product, query) {
+  const scores = getProductVariants(product)
+    .map((variant) => getVariantSuggestionScore(product, variant, query))
+    .filter((score) => score !== null);
+  return scores.length ? Math.min(...scores) : null;
+}
+
+function loadMapSections() {
+  const saved = readJSON(STORAGE_KEYS.mapSections, []);
+  if (!Array.isArray(saved)) return [];
+  return saved
+    .map((section, index) => normalizeMapSection(section, index))
+    .filter(Boolean);
+}
+
+function createMapSection(section) {
+  const type = normalizeSectionType(section.type);
+  const name = section.name.trim();
+  const key = uniqueMapSectionKey(`${type}-${slugify(name)}`);
+  const customIndex = state.mapSections.length;
+  return normalizeMapSection({
+    ...section,
+    key,
+    type,
+    name,
+    shortLabel: section.label.trim(),
+    order: 100 + customIndex,
+    ...getDefaultMapSectionPosition(type, customIndex)
+  }, customIndex);
+}
+
+function normalizeMapSection(section, index = 0) {
+  const name = String(section?.name || section?.label || "").trim();
+  if (!name) return null;
+  const type = normalizeSectionType(section.type);
+  const position = getDefaultMapSectionPosition(type, index);
+  const label = String(section.label || name).trim();
+  return {
+    key: section.key || `${type}-${slugify(name)}`,
+    name,
+    type,
+    label,
+    shortLabel: String(section.shortLabel || label).trim(),
+    categories: Array.isArray(section.categories)
+      ? section.categories.map((category) => String(category).trim()).filter(Boolean)
+      : parseCategoryList(section.categories || ""),
+    order: Number.isFinite(Number(section.order)) ? Number(section.order) : 100 + index,
+    left: Number.isFinite(Number(section.left)) ? Number(section.left) : position.left,
+    top: Number.isFinite(Number(section.top)) ? Number(section.top) : position.top,
+    width: Number.isFinite(Number(section.width)) ? Number(section.width) : position.width,
+    height: Number.isFinite(Number(section.height)) ? Number(section.height) : position.height
+  };
+}
+
+function normalizeSectionType(type) {
+  return ["aisle", "wall", "frozen", "meat"].includes(type) ? type : "aisle";
+}
+
+function getDefaultMapSectionPosition(type, index) {
+  const column = index % 4;
+  const row = Math.floor(index / 4);
+  const left = 18 + column * 15;
+  const top = 82 + row * 5.4;
+  const sizeByType = {
+    aisle: { width: 5.0, height: 9.0 },
+    wall: { width: 5.0, height: 9.0 },
+    frozen: { width: 11.5, height: 4.3 },
+    meat: { width: 11.5, height: 4.3 }
+  };
+  const size = sizeByType[type] || sizeByType.aisle;
+  return {
+    left: clamp(left, 4, 88),
+    top: clamp(top, 4, 92),
+    ...size
+  };
+}
+
+function parseCategoryList(value) {
+  return [...new Set(String(value || "")
+    .split(/[\n,]+/)
+    .map((category) => category.trim())
+    .filter(Boolean))];
+}
+
+function uniqueMapSectionKey(base) {
+  const used = new Set(getLocationZones().map((location) => location.key));
+  let key = base;
+  let counter = 2;
+  while (used.has(key)) {
+    key = `${base}-${counter}`;
+    counter += 1;
+  }
+  return key;
+}
+
+function persistMapSections() {
+  saveJSON(STORAGE_KEYS.mapSections, state.mapSections);
+}
+
+function loadProducts() {
+  const saved = readJSON(STORAGE_KEYS.products, null);
+  const deletedIds = new Set(readJSON(STORAGE_KEYS.deletedProducts, []));
+  const defaults = DEFAULT_PRODUCTS
+    .map(normalizeProduct)
+    .filter((product) => !deletedIds.has(product.id));
+  if (!Array.isArray(saved)) return defaults;
+
+  const savedProducts = migrateSavedWallLocations(saved).filter((product) => !deletedIds.has(product.id));
+  const savedMap = new Map(savedProducts.map((product) => [product.id, product]));
+  const defaultIds = new Set(defaults.map((product) => product.id));
+  const merged = defaults.map((product) => {
+    const savedProduct = savedMap.get(product.id);
+    if (!savedProduct) return product;
+    const normalizedSaved = normalizeProduct(savedProduct);
+    const hasSavedVariants = Object.prototype.hasOwnProperty.call(savedProduct, "variants");
+    return {
+      ...product,
+      ...normalizedSaved,
+      variants: hasSavedVariants ? normalizedSaved.variants : product.variants
+    };
+  });
+  savedProducts.forEach((product) => {
+    if (!defaultIds.has(product.id)) merged.push(normalizeProduct(product));
+  });
+  return merged;
+}
+
+function migrateSavedWallLocations(products) {
+  if (localStorage.getItem(STORAGE_KEYS.wallRenameMigration) === "true") return products;
+  const migrated = products.map((product) => {
+    const locationKey = LEGACY_WALL_LOCATION_RENAMES[product.locationKey] || product.locationKey;
+    return locationKey === product.locationKey ? product : { ...product, locationKey };
+  });
+  saveJSON(STORAGE_KEYS.products, migrated);
+  localStorage.setItem(STORAGE_KEYS.wallRenameMigration, "true");
+  return migrated;
+}
+
+function normalizeProduct(product) {
+  const locationFields = createLocationFields(getProductLocationKey(product));
+  const normalized = {
+    ...product,
+    ...locationFields,
+    price: Math.max(0, Number(product.price) || 0),
+    image: product.image || "",
+    inStock: product.inStock !== false
+  };
+  return {
+    ...normalized,
+    variants: normalizeVariants(product.variants, normalized)
+  };
+}
+
+function normalizeVariants(variants, product) {
+  if (!Array.isArray(variants)) return [];
+  const usedIds = new Set();
+  return variants
+    .map((variant) => {
+      const name = String(variant?.name || "").trim();
+      if (!name) return null;
+      const id = uniqueVariantId(variant.id || slugify(name), usedIds);
+      const numericPrice = Number(variant.price);
+      const price = Number.isFinite(numericPrice) ? Math.max(0, numericPrice) : product.price;
+      return {
+        id,
+        name,
+        price: Number.isFinite(price) ? price : product.price,
+        image: variant.image || "",
+        inStock: variant.inStock !== false
+      };
+    })
+    .filter(Boolean);
+}
+
+function persistProducts() {
+  saveJSON(STORAGE_KEYS.products, state.products);
+}
+
+function readJSON(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function saveJSON(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+function normalize(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function slugify(value) {
+  return normalize(value).replace(/\s+/g, "-") || createId("product");
+}
+
+function titleCase(value) {
+  return String(value)
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word[0].toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function uniqueProductId(base) {
+  let id = base;
+  let counter = 2;
+  while (findProductById(id)) {
+    id = `${base}-${counter}`;
+    counter += 1;
+  }
+  return id;
+}
+
+function uniqueVariantId(base, usedIds) {
+  const cleanBase = slugify(base || "variant");
+  let id = cleanBase;
+  let counter = 2;
+  while (usedIds.has(id)) {
+    id = `${cleanBase}-${counter}`;
+    counter += 1;
+  }
+  usedIds.add(id);
+  return id;
+}
+
+function productInitials(name) {
+  const words = name.replace(/[^a-zA-Z0-9 ]/g, " ").trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return "HM";
+  if (words.length === 1) return words[0].slice(0, 2);
+  return `${words[0][0]}${words[1][0]}`.slice(0, 2);
+}
+
+function createId(prefix) {
+  if (window.crypto?.randomUUID) return `${prefix}-${window.crypto.randomUUID()}`;
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function escapeHTML(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}

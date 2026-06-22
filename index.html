@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Haul Mart Navigator</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand-lockup">
+        <img src="assets/haulmart-logo.png" alt="Haul Mart" class="brand-logo">
+      </div>
+    </header>
+
+    <main class="app-shell">
+      <section class="role-view" data-role-view="customer">
+        <nav class="tool-tabs" aria-label="Customer tools">
+          <button class="tab-button is-active" type="button" data-tab="navigation">
+            <span class="tab-icon">⌕</span>
+            <span>Find an Item</span>
+          </button>
+          <button class="tab-button" type="button" data-tab="list">
+            <span class="tab-icon">✓</span>
+            <span>Make a List</span>
+          </button>
+          <button class="tab-button" type="button" data-tab="budget">
+            <span class="tab-icon">₱</span>
+            <span>Budget Calculator</span>
+          </button>
+        </nav>
+
+        <section class="tab-screen is-active" data-screen="navigation">
+          <div class="workspace-grid navigation-grid">
+            <section class="tool-panel search-panel">
+              <div class="find-heading">
+                <h1>What are you looking for today?</h1>
+              </div>
+
+              <form id="navSearchForm" class="search-row nav-search-row">
+                <label class="sr-only" for="navSearch">Search products</label>
+                <input id="navSearch" class="search-input" type="search" placeholder="Search" autocomplete="off">
+                <button id="submitNavSearch" class="primary-button" type="submit">Search</button>
+                <button id="clearNavSearch" class="icon-button" type="button" aria-label="Clear search">×</button>
+              </form>
+
+              <div id="categoryChips" class="chip-row is-hidden" hidden></div>
+            </section>
+
+            <aside id="mapPanel" class="map-panel" aria-labelledby="mapTitle" aria-hidden="false">
+              <div class="panel-heading compact">
+                <div class="map-detail-copy">
+                  <h2 id="mapTitle">Location Guide</h2>
+                  <p id="mapRoute" class="route-text">Search or tap a section to view details.</p>
+                  <div id="mapGroups" class="map-groups is-hidden" aria-live="polite"></div>
+                </div>
+              </div>
+              <div class="map-frame">
+                <div class="map-scroll" aria-label="Swipe store map horizontally">
+                  <div class="store-map-ui" role="img" aria-label="Haul Mart store map">
+                    <div id="mapLandmarks" class="map-landmarks" aria-hidden="true"></div>
+                    <div id="mapZones" class="map-zones" aria-label="Store sections"></div>
+                  </div>
+                </div>
+                <div class="map-legend" aria-label="Map legend">
+                  <span><strong>M</strong> = Meat</span>
+                  <span><strong>F</strong> = Frozen</span>
+                  <span><strong>A</strong> = Aisle</span>
+                  <span><strong>W</strong> = Wall</span>
+                  <span><strong>C</strong> = Cashier</span>
+                </div>
+              </div>
+              <button id="closeMap" class="ghost-button map-hide-button full-width" type="button">Hide Map</button>
+            </aside>
+
+            <section class="tool-panel results-panel">
+              <div id="navResults" class="results-grid" aria-live="polite"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="tab-screen" data-screen="list">
+          <div class="workspace-grid list-grid">
+            <section class="tool-panel">
+              <div class="panel-heading">
+                <h1>Make a List</h1>
+                <span id="listCount" class="count-chip">0 pending</span>
+              </div>
+
+              <form id="listForm" class="entry-row">
+                <label class="sr-only" for="listInput">Add list item</label>
+                <input id="listInput" class="search-input" placeholder="Add product or custom item" autocomplete="off">
+                <button class="primary-button" type="submit">Add</button>
+              </form>
+              <div id="listSuggestions" class="product-suggestions is-hidden" aria-live="polite"></div>
+
+              <div id="groceryList" class="checklist" aria-live="polite"></div>
+            </section>
+
+            <aside class="tool-panel route-panel">
+              <div class="panel-heading compact">
+                <h2>List Route</h2>
+                <button id="clearFinished" class="ghost-button" type="button">Clear Finished</button>
+              </div>
+              <div id="listRoute" class="route-stack"></div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="tab-screen" data-screen="budget">
+          <div class="workspace-grid budget-grid">
+            <section class="tool-panel">
+              <div class="panel-heading">
+                <h1>Budget Calculator</h1>
+                <span id="budgetCount" class="count-chip">0 products</span>
+              </div>
+
+              <form id="budgetForm" class="entry-row budget-entry">
+                <label class="sr-only" for="budgetInput">Select product</label>
+                <input id="budgetInput" class="search-input" placeholder="Search or select product" autocomplete="off">
+                <label class="sr-only" for="budgetQty">Quantity</label>
+                <input id="budgetQty" class="qty-input" type="number" min="1" value="1">
+                <button class="primary-button" type="submit">Add</button>
+              </form>
+              <div id="budgetSuggestions" class="product-suggestions is-hidden" aria-live="polite"></div>
+
+              <div id="budgetItems" class="budget-list" aria-live="polite"></div>
+            </section>
+
+            <aside class="total-panel">
+              <span class="total-label">Estimated Total</span>
+              <strong id="budgetTotal">₱0</strong>
+              <button id="makeChecklist" class="primary-button full-width" type="button">Make Checklist</button>
+              <button id="clearBudget" class="ghost-button full-width" type="button">Clear Budget</button>
+            </aside>
+          </div>
+        </section>
+      </section>
+
+      <section class="role-view is-hidden" data-role-view="admin">
+        <section id="adminLock" class="admin-lock">
+          <img src="assets/haulmart-logo.png" alt="Haul Mart" class="admin-logo">
+          <h1>Admin Access</h1>
+          <form id="adminLogin" class="admin-login">
+            <label class="sr-only" for="adminCode">Admin passcode</label>
+            <input id="adminCode" class="search-input" type="password" placeholder="Passcode" autocomplete="current-password">
+            <button class="primary-button" type="submit">Unlock</button>
+          </form>
+          <p id="adminLoginMessage" class="admin-message is-hidden" aria-live="polite"></p>
+          <button id="adminBackFromLock" class="ghost-button" type="button">Back to Customer View</button>
+        </section>
+
+        <section id="adminPanel" class="admin-panel is-hidden">
+          <div class="admin-header">
+            <div>
+              <h1>Inventory Controls</h1>
+              <p class="route-text">Product changes update customer search, lists, budgets, and aisle routes.</p>
+            </div>
+            <div class="admin-actions">
+              <button id="adminBackButton" class="ghost-button admin-back-button" type="button">Back to Customer View</button>
+              <button id="adminLockButton" class="ghost-button" type="button">Lock</button>
+              <button id="resetInventory" class="danger-button" type="button">Reset</button>
+            </div>
+          </div>
+
+          <div class="admin-grid">
+            <section class="tool-panel">
+              <div class="panel-heading">
+                <h2>Products</h2>
+                <span id="adminCount" class="count-chip">0 items</span>
+              </div>
+              <div class="search-row">
+                <label class="sr-only" for="adminSearch">Search inventory</label>
+                <input id="adminSearch" class="search-input" type="search" placeholder="Search inventory" autocomplete="off">
+                <button id="clearAdminSearch" class="icon-button" type="button" aria-label="Clear admin search">×</button>
+              </div>
+              <div id="adminProductList" class="admin-product-list"></div>
+            </section>
+
+            <div class="admin-side-stack">
+              <section class="tool-panel">
+                <div class="panel-heading">
+                  <h2>Add Product</h2>
+                  <span id="adminStatus" class="count-chip muted">Ready</span>
+                </div>
+                <form id="adminAddForm" class="admin-form">
+                  <input id="newName" type="text" placeholder="Product name">
+                  <div class="inline-fields">
+                    <input id="newPrice" type="number" min="0" placeholder="Price">
+                    <select id="newLocation" aria-label="New product location"></select>
+                  </div>
+                  <input id="newCategory" type="text" placeholder="Category">
+                  <input id="newImage" type="text" placeholder="Paste image URL, copied image, or local path">
+                  <input id="newImageUpload" type="file" accept="image/*" aria-label="Upload new product image">
+                  <div id="newImagePreview" class="image-preview is-empty">Image preview</div>
+                  <button class="ghost-button full-width" type="submit">Add Product</button>
+                </form>
+              </section>
+
+              <section class="tool-panel">
+                <div class="panel-heading">
+                  <h2>Map Settings</h2>
+                  <span id="mapSectionStatus" class="count-chip muted">Ready</span>
+                </div>
+                <form id="mapSectionForm" class="admin-form map-settings-form">
+                  <label for="mapSectionName">Section name</label>
+                  <input id="mapSectionName" type="text" placeholder="Example: Aisle 11">
+
+                  <div class="inline-fields">
+                    <div class="form-pair">
+                      <label for="mapSectionType">Section type</label>
+                      <select id="mapSectionType">
+                        <option value="aisle">Aisle</option>
+                        <option value="wall">Wall</option>
+                        <option value="frozen">Frozen</option>
+                        <option value="meat">Meat</option>
+                      </select>
+                    </div>
+                    <div class="form-pair">
+                      <label for="mapSectionLabel">Section label</label>
+                      <input id="mapSectionLabel" type="text" placeholder="Example: A11">
+                    </div>
+                  </div>
+
+                  <label for="mapSectionCategories">Product categories</label>
+                  <textarea id="mapSectionCategories" rows="3" placeholder="Rice&#10;Snacks&#10;Drinks"></textarea>
+                  <p id="mapSectionMessage" class="admin-message is-hidden" aria-live="polite"></p>
+                  <button class="primary-button full-width" type="submit">Save Section</button>
+                </form>
+                <div id="mapSectionList" class="map-section-list" aria-live="polite"></div>
+              </section>
+
+              <section class="tool-panel">
+                <div class="panel-heading">
+                  <h2>Change Admin Passcode</h2>
+                  <span id="passcodeStatus" class="count-chip muted">Protected</span>
+                </div>
+                <form id="passcodeForm" class="admin-form passcode-form">
+                  <label for="currentPasscode">Current passcode</label>
+                  <input id="currentPasscode" type="password" placeholder="Current passcode" autocomplete="current-password">
+                  <label for="newPasscode">New passcode</label>
+                  <input id="newPasscode" type="password" placeholder="New passcode" autocomplete="new-password">
+                  <label for="confirmPasscode">Confirm new passcode</label>
+                  <input id="confirmPasscode" type="password" placeholder="Confirm new passcode" autocomplete="new-password">
+                  <p id="passcodeMessage" class="admin-message is-hidden" aria-live="polite"></p>
+                  <button class="primary-button full-width" type="submit">Change Admin Passcode</button>
+                </form>
+              </section>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <footer class="utility-footer">
+      <button id="adminAccessLink" class="admin-access-link" type="button">Admin access</button>
+    </footer>
+
+    <datalist id="productOptions"></datalist>
+
+    <script src="data/products.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
