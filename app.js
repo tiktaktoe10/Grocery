@@ -237,7 +237,7 @@ function cacheElements() {
   els.listCount = document.querySelector("#listCount");
   els.listRoute = document.querySelector("#listRoute");
   els.listMessage = document.querySelector("#listMessage");
-  els.clearFinished = document.querySelector("#clearFinished");
+  els.clearList = document.querySelector("#clearList");
   els.budgetForm = document.querySelector("#budgetForm");
   els.budgetInput = document.querySelector("#budgetInput");
   els.budgetQty = document.querySelector("#budgetQty");
@@ -342,7 +342,7 @@ function wireEvents() {
   els.listForm.addEventListener("submit", handleListSubmit);
   els.groceryList.addEventListener("click", handleListClick);
   els.groceryList.addEventListener("change", handleListChange);
-  els.clearFinished.addEventListener("click", clearFinishedItems);
+  els.clearList.addEventListener("click", clearCompletedListItems);
   els.budgetInput.addEventListener("input", () => renderProductSuggestions("budget"));
   els.budgetInput.addEventListener("focus", () => renderProductSuggestions("budget"));
   els.budgetSuggestions.addEventListener("click", handleBudgetSuggestionClick);
@@ -968,10 +968,10 @@ function handleListChange(event) {
   renderGroceryList();
 }
 
-function clearFinishedItems() {
+function clearCompletedListItems() {
   const completed = state.groceryList.filter((item) => item.done);
   if (!completed.length) {
-    showListMessage("No completed items to clear.", "");
+    showListMessage("No completed items selected.", "");
     return;
   }
 
