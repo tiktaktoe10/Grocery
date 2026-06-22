@@ -16,6 +16,9 @@
   --scroll-track: #eef1f4;
   --scroll-thumb: rgba(94, 101, 112, 0.32);
   --scroll-thumb-hover: rgba(73, 80, 90, 0.62);
+  --image-surface: #f8fafc;
+  --image-surface-inner: #ffffff;
+  --image-border: #e1e6ee;
 }
 
 * {
@@ -652,9 +655,9 @@ h2 {
 
 .product-card {
   display: grid;
-  grid-template-rows: 152px 1fr;
+  grid-template-rows: 172px 1fr;
   overflow: hidden;
-  min-height: 358px;
+  min-height: 378px;
 }
 
 .product-shot {
@@ -662,11 +665,11 @@ h2 {
   display: grid;
   place-items: center;
   overflow: hidden;
-  padding: 18px;
+  height: 172px;
+  padding: 16px;
   color: var(--ink);
-  background:
-    linear-gradient(180deg, #ffffff 0%, #f6f8fb 100%);
-  border-bottom: 1px solid #eef1f4;
+  background: var(--image-surface);
+  border-bottom: 1px solid var(--image-border);
   isolation: isolate;
 }
 
@@ -678,12 +681,11 @@ h2 {
   content: "";
   position: absolute;
   inset: 12px;
-  background:
-    radial-gradient(circle at center, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0)),
-    linear-gradient(135deg, rgba(16, 17, 20, 0.035), rgba(16, 17, 20, 0));
-  border: 1px solid rgba(217, 221, 229, 0.68);
+  background: var(--image-surface-inner);
+  border: 1px solid var(--image-border);
   border-radius: 6px;
-  z-index: -1;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
+  z-index: 0;
 }
 
 .product-shot.is-missing {
@@ -703,24 +705,27 @@ h2 {
 }
 
 .product-image {
+  position: relative;
+  z-index: 1;
   display: block;
-  width: 100%;
-  height: 100%;
-  max-width: 100%;
-  max-height: 116px;
+  width: min(100%, 174px);
+  height: 132px;
+  padding: 8px;
   object-fit: contain;
   object-position: center;
   border-radius: 0;
 }
 
 .missing-image {
+  position: relative;
+  z-index: 1;
   display: grid;
   place-items: center;
-  width: min(78%, 170px);
-  min-height: 62px;
-  padding: 10px 12px;
+  width: min(82%, 176px);
+  min-height: 72px;
+  padding: 12px 14px;
   color: var(--ink);
-  background: rgba(255, 255, 255, 0.88);
+  background: var(--image-surface-inner);
   border: 2px dashed rgba(16, 17, 20, 0.28);
   border-radius: 8px;
   font-size: 0.88rem;
@@ -808,11 +813,12 @@ h2 {
   place-items: center;
   width: 46px;
   height: 46px;
+  padding: 4px;
   overflow: hidden;
   color: var(--muted);
-  background: #eef1f4;
-  border: 1px solid #dfe4eb;
-  border-radius: 8px;
+  background: var(--image-surface-inner);
+  border: 1px solid var(--image-border);
+  border-radius: 6px;
   font-size: 0.58rem;
   font-weight: 800;
   text-align: center;
@@ -821,8 +827,8 @@ h2 {
 .variant-thumb img {
   width: 100%;
   height: 100%;
-  padding: 4px;
   object-fit: contain;
+  object-position: center;
 }
 
 .variant-copy {
@@ -1578,13 +1584,13 @@ h2 {
 }
 
 .variant-editor-row .image-preview {
-  min-height: 96px;
+  min-height: 112px;
 }
 
 .variant-editor-row .image-preview img {
   height: 112px;
   object-fit: contain;
-  background: #ffffff;
+  background: var(--image-surface-inner);
 }
 
 .danger-mini-button {
@@ -1699,11 +1705,11 @@ h2 {
 .image-preview {
   display: grid;
   place-items: center;
-  min-height: 132px;
+  min-height: 148px;
   overflow: hidden;
   color: var(--muted);
-  background: #f6f8fa;
-  border: 1px dashed #cbd3dc;
+  background: var(--image-surface);
+  border: 1px dashed var(--image-border);
   border-radius: 8px;
   font-size: 0.86rem;
   font-weight: 900;
@@ -1713,8 +1719,11 @@ h2 {
 .image-preview img {
   display: block;
   width: 100%;
-  height: 160px;
-  object-fit: cover;
+  height: 148px;
+  padding: 12px;
+  object-fit: contain;
+  object-position: center;
+  background: var(--image-surface-inner);
 }
 
 .image-preview.is-empty {
