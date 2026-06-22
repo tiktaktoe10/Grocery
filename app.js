@@ -405,7 +405,9 @@ function showCustomerView() {
 function setTab(tab) {
   state.tab = tab;
   els.tabButtons.forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.tab === tab);
+    const selected = button.dataset.tab === tab;
+    button.classList.toggle("is-active", selected);
+    button.setAttribute("aria-selected", selected ? "true" : "false");
   });
   els.tabScreens.forEach((screen) => {
     screen.classList.toggle("is-active", screen.dataset.screen === tab);
