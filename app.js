@@ -24,6 +24,7 @@ const STORAGE_KEYS = {
 
 const PRODUCT_IMAGE_BASE_PATH = "assets/products/";
 const IMAGE_FILE_EXTENSION = /\.(avif|gif|jpe?g|png|svg|webp)$/i;
+let knownProductImagePaths = null;
 
 const LOCATION_ZONES = [
   { key: "meat-1", label: "Meat 1", order: 1, left: 21.83, top: 7.83, width: 10.44, height: 4.34 },
@@ -86,8 +87,8 @@ const EXTRA_PRODUCTS = [
   { id: "frozen-siomai", name: "Frozen Siomai", price: 160, category: "Frozen Meals", locationKey: "frozen-2", inStock: true },
   { id: "frozen-fries", name: "Frozen Fries", price: 145, category: "Frozen Sides", locationKey: "frozen-3", inStock: true },
   { id: "frozen-vegetables", name: "Frozen Vegetables", price: 130, category: "Frozen Sides", locationKey: "frozen-3", inStock: true },
-  { id: "fish-fillet", name: "Fish Fillet", price: 210, category: "Frozen Seafood", locationKey: "frozen-4", inStock: true },
-  { id: "shrimp-pack", name: "Shrimp Pack", price: 320, category: "Frozen Seafood", locationKey: "frozen-4", inStock: true },
+  { id: "fish-fillet", name: "Fish Fillet", price: 210, category: "Frozen Seafood", locationKey: "frozen-4", image: "assets/products/fish-fillet.png", inStock: true },
+  { id: "shrimp-pack", name: "Shrimp Pack", price: 320, category: "Frozen Seafood", locationKey: "frozen-4", image: "assets/products/shrimp-pack.png", inStock: true },
   { id: "garlic-bulb", name: "Garlic Bulb", price: 25, category: "Wall Produce", locationKey: "wall-1", inStock: true },
   { id: "red-onion", name: "Red Onion", price: 35, category: "Wall Produce", locationKey: "wall-1", inStock: true },
   { id: "tomato", name: "Tomato", price: 45, category: "Wall Produce", locationKey: "wall-1", inStock: true },
@@ -2117,21 +2118,26 @@ function loadProducts() {
   const savedProducts = migrateSavedWallLocations(saved).filter((product) => !deletedIds.has(product.id));
   const savedMap = new Map(savedProducts.map((product) => [product.id, product]));
   const defaultIds = new Set(defaults.map((product) => product.id));
+  let shouldRepairSavedProducts = savedProducts.some(hasEmbeddedProductImage);
   const merged = defaults.map((product) => {
     const savedProduct = savedMap.get(product.id);
     if (!savedProduct) return product;
     const normalizedSaved = normalizeProduct(savedProduct);
     const hasSavedVariants = Object.prototype.hasOwnProperty.call(savedProduct, "variants");
+    const image = mergeProductImage(product, normalizedSaved);
+    if (normalizedSaved.image !== normalizeProductImagePath(savedProduct.image)) shouldRepairSavedProducts = true;
+    if (image !== normalizedSaved.image) shouldRepairSavedProducts = true;
     return {
       ...product,
       ...normalizedSaved,
+      image,
       variants: hasSavedVariants ? normalizedSaved.variants : product.variants
     };
   });
   savedProducts.forEach((product) => {
     if (!defaultIds.has(product.id)) merged.push(normalizeProduct(product));
   });
-  if (savedProducts.some(hasEmbeddedProductImage)) {
+  if (shouldRepairSavedProducts) {
     saveJSON(STORAGE_KEYS.products, merged);
   }
   return merged;
@@ -2192,17 +2198,50 @@ function hasEmbeddedProductImage(product) {
 
 function getProductImagePath(product) {
   const productImage = normalizeProductImagePath(product?.image);
-  if (productImage) return productImage;
-  const mappedImage = window.HAULMART_PRODUCT_IMAGES?.[product?.id];
-  return normalizeProductImagePath(mappedImage);
+  const mappedImage = normalizeProductImagePath(window.HAULMART_PRODUCT_IMAGES?.[product?.id]);
+  return chooseDeployableProductImage(productImage, mappedImage);
 }
 
 function getVariantImagePath(variant, product) {
   const variantImage = normalizeProductImagePath(variant?.image);
-  if (variantImage) return variantImage;
   const productImages = window.HAULMART_PRODUCT_VARIANT_IMAGES?.[product?.id] || {};
-  const mappedImage = productImages[variant?.id] || productImages[slugify(variant?.name)];
-  return normalizeProductImagePath(mappedImage);
+  const mappedImage = normalizeProductImagePath(productImages[variant?.id] || productImages[slugify(variant?.name)]);
+  return chooseDeployableProductImage(variantImage, mappedImage);
+}
+
+function mergeProductImage(defaultProduct, savedProduct) {
+  const defaultImage = getProductImagePath(defaultProduct);
+  const savedImage = getProductImagePath(savedProduct);
+  if (!savedImage) return defaultImage;
+  if (!defaultImage) return savedImage;
+  if (savedImage === defaultImage || hasKnownProductImagePath(savedImage)) return savedImage;
+  return defaultImage;
+}
+
+function chooseDeployableProductImage(productImage, mappedImage) {
+  if (productImage && (!mappedImage || productImage === mappedImage || hasKnownProductImagePath(productImage))) {
+    return productImage;
+  }
+  return mappedImage || productImage;
+}
+
+function hasKnownProductImagePath(imagePath) {
+  const image = normalizeProductImagePath(imagePath);
+  if (!image) return false;
+  if (!knownProductImagePaths) {
+    knownProductImagePaths = new Set();
+    Object.values(window.HAULMART_PRODUCT_IMAGES || {}).forEach((path) => {
+      const cleanPath = normalizeProductImagePath(path);
+      if (cleanPath) knownProductImagePaths.add(cleanPath);
+    });
+    Object.values(window.HAULMART_PRODUCT_VARIANT_IMAGES || {}).forEach((variantImages) => {
+      Object.values(variantImages || {}).forEach((path) => {
+        const cleanPath = normalizeProductImagePath(path);
+        if (cleanPath) knownProductImagePaths.add(cleanPath);
+      });
+    });
+  }
+  return knownProductImagePaths.has(image);
 }
 
 function persistProducts() {

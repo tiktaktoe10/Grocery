@@ -5,7 +5,8 @@ window.HAULMART_PRODUCTS = [
     "price": 320,
     "category": "Rice, Oil & Condiments",
     "aisle": 1,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/jasmine-rice-5kg.png"
   },
   {
     "id": "dinorado-rice-5kg",
@@ -13,7 +14,8 @@ window.HAULMART_PRODUCTS = [
     "price": 400,
     "category": "Rice, Oil & Condiments",
     "aisle": 1,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/dinorado-rice-5kg.png"
   },
   {
     "id": "sinandomeng-rice-5kg",
@@ -21,7 +23,8 @@ window.HAULMART_PRODUCTS = [
     "price": 340,
     "category": "Rice, Oil & Condiments",
     "aisle": 1,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/sinandomeng-rice-5kg.png"
   },
   {
     "id": "brown-rice-5kg",
@@ -29,7 +32,8 @@ window.HAULMART_PRODUCTS = [
     "price": 450,
     "category": "Rice, Oil & Condiments",
     "aisle": 1,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/brown-rice-5kg.png"
   },
   {
     "id": "canola-oil-1l",
@@ -37,7 +41,8 @@ window.HAULMART_PRODUCTS = [
     "price": 135,
     "category": "Rice, Oil & Condiments",
     "aisle": 1,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/canola-oil-1l.png"
   },
   {
     "id": "vegetable-oil-1l",
@@ -45,7 +50,8 @@ window.HAULMART_PRODUCTS = [
     "price": 115,
     "category": "Rice, Oil & Condiments",
     "aisle": 1,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/vegetable-oil-1l.png"
   },
   {
     "id": "coconut-oil-1l",
@@ -53,7 +59,8 @@ window.HAULMART_PRODUCTS = [
     "price": 180,
     "category": "Rice, Oil & Condiments",
     "aisle": 1,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/coconut-oil-1l.png"
   },
   {
     "id": "soy-sauce",
@@ -61,7 +68,8 @@ window.HAULMART_PRODUCTS = [
     "price": 45,
     "category": "Rice, Oil & Condiments",
     "aisle": 1,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/soy-sauce.png"
   },
   {
     "id": "datu-puti-soy-sauce",
@@ -77,7 +85,8 @@ window.HAULMART_PRODUCTS = [
     "price": 48,
     "category": "Rice, Oil & Condiments",
     "aisle": 1,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/silver-swan-soy-sauce.png"
   },
   {
     "id": "vinegar",
@@ -85,7 +94,8 @@ window.HAULMART_PRODUCTS = [
     "price": 35,
     "category": "Rice, Oil & Condiments",
     "aisle": 1,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/vinegar.png"
   },
   {
     "id": "cane-vinegar",
@@ -93,7 +103,8 @@ window.HAULMART_PRODUCTS = [
     "price": 38,
     "category": "Rice, Oil & Condiments",
     "aisle": 1,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/cane-vinegar.png"
   },
   {
     "id": "fish-sauce",
@@ -101,7 +112,8 @@ window.HAULMART_PRODUCTS = [
     "price": 32,
     "category": "Rice, Oil & Condiments",
     "aisle": 1,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/fish-sauce.png"
   },
   {
     "id": "mang-tomas-original",
@@ -109,7 +121,8 @@ window.HAULMART_PRODUCTS = [
     "price": 72,
     "category": "Rice, Oil & Condiments",
     "aisle": 1,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/mang-tomas-original.png"
   },
   {
     "id": "ufc-banana-ketchup",
@@ -117,7 +130,8 @@ window.HAULMART_PRODUCTS = [
     "price": 58,
     "category": "Rice, Oil & Condiments",
     "aisle": 1,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/ufc-banana-ketchup.png"
   },
   {
     "id": "del-monte-ketchup",
@@ -125,7 +139,8 @@ window.HAULMART_PRODUCTS = [
     "price": 65,
     "category": "Rice, Oil & Condiments",
     "aisle": 1,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/del-monte-ketchup.png"
   },
   {
     "id": "salt",
@@ -133,7 +148,8 @@ window.HAULMART_PRODUCTS = [
     "price": 22,
     "category": "Rice, Oil & Condiments",
     "aisle": 1,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/salt.png"
   },
   {
     "id": "pepper-powder",
@@ -141,7 +157,8 @@ window.HAULMART_PRODUCTS = [
     "price": 55,
     "category": "Rice, Oil & Condiments",
     "aisle": 1,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/pepper-powder.png"
   },
   {
     "id": "garlic-powder",
@@ -149,7 +166,8 @@ window.HAULMART_PRODUCTS = [
     "price": 65,
     "category": "Rice, Oil & Condiments",
     "aisle": 1,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/garlic-powder.png"
   },
   {
     "id": "onion-powder",
@@ -157,7 +175,8 @@ window.HAULMART_PRODUCTS = [
     "price": 60,
     "category": "Rice, Oil & Condiments",
     "aisle": 1,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/onion-powder.png"
   },
   {
     "id": "lucky-me-pancit-canton-original",
@@ -165,7 +184,8 @@ window.HAULMART_PRODUCTS = [
     "price": 18,
     "category": "Instant Noodles & Canned Goods",
     "aisle": 2,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/lucky-me-pancit-canton-original.png"
   },
   {
     "id": "lucky-me-kalamansi",
@@ -173,7 +193,8 @@ window.HAULMART_PRODUCTS = [
     "price": 18,
     "category": "Instant Noodles & Canned Goods",
     "aisle": 2,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/lucky-me-kalamansi.png"
   },
   {
     "id": "lucky-me-chili-mansi",
@@ -181,7 +202,8 @@ window.HAULMART_PRODUCTS = [
     "price": 18,
     "category": "Instant Noodles & Canned Goods",
     "aisle": 2,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/lucky-me-chili-mansi.png"
   },
   {
     "id": "nissin-cup-noodles-seafood",
@@ -189,7 +211,8 @@ window.HAULMART_PRODUCTS = [
     "price": 35,
     "category": "Instant Noodles & Canned Goods",
     "aisle": 2,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/nissin-cup-noodles-seafood.png"
   },
   {
     "id": "nissin-cup-noodles-beef",
@@ -197,7 +220,8 @@ window.HAULMART_PRODUCTS = [
     "price": 35,
     "category": "Instant Noodles & Canned Goods",
     "aisle": 2,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/nissin-cup-noodles-beef.png"
   },
   {
     "id": "payless-xtra-big",
@@ -205,7 +229,8 @@ window.HAULMART_PRODUCTS = [
     "price": 22,
     "category": "Instant Noodles & Canned Goods",
     "aisle": 2,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/payless-xtra-big.png"
   },
   {
     "id": "century-tuna-flakes-in-oil",
@@ -213,7 +238,8 @@ window.HAULMART_PRODUCTS = [
     "price": 42,
     "category": "Instant Noodles & Canned Goods",
     "aisle": 2,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/century-tuna-flakes-in-oil.png"
   },
   {
     "id": "century-tuna-hot-spicy",
@@ -221,7 +247,8 @@ window.HAULMART_PRODUCTS = [
     "price": 45,
     "category": "Instant Noodles & Canned Goods",
     "aisle": 2,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/century-tuna-hot-spicy.png"
   },
   {
     "id": "mega-sardines",
@@ -229,7 +256,8 @@ window.HAULMART_PRODUCTS = [
     "price": 28,
     "category": "Instant Noodles & Canned Goods",
     "aisle": 2,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/mega-sardines.png"
   },
   {
     "id": "555-sardines",
@@ -237,7 +265,8 @@ window.HAULMART_PRODUCTS = [
     "price": 30,
     "category": "Instant Noodles & Canned Goods",
     "aisle": 2,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/555-sardines.png"
   },
   {
     "id": "young-s-town-sardines",
@@ -245,7 +274,8 @@ window.HAULMART_PRODUCTS = [
     "price": 29,
     "category": "Instant Noodles & Canned Goods",
     "aisle": 2,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/young-s-town-sardines.png"
   },
   {
     "id": "argentina-corned-beef",
@@ -253,7 +283,8 @@ window.HAULMART_PRODUCTS = [
     "price": 55,
     "category": "Instant Noodles & Canned Goods",
     "aisle": 2,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/argentina-corned-beef.png"
   },
   {
     "id": "purefoods-corned-beef",
@@ -261,7 +292,8 @@ window.HAULMART_PRODUCTS = [
     "price": 68,
     "category": "Instant Noodles & Canned Goods",
     "aisle": 2,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/purefoods-corned-beef.png"
   },
   {
     "id": "spam-classic",
@@ -269,7 +301,8 @@ window.HAULMART_PRODUCTS = [
     "price": 235,
     "category": "Instant Noodles & Canned Goods",
     "aisle": 2,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/spam-classic.png"
   },
   {
     "id": "vienna-sausage",
@@ -277,7 +310,8 @@ window.HAULMART_PRODUCTS = [
     "price": 55,
     "category": "Instant Noodles & Canned Goods",
     "aisle": 2,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/vienna-sausage.png"
   },
   {
     "id": "pork-beans",
@@ -285,7 +319,8 @@ window.HAULMART_PRODUCTS = [
     "price": 42,
     "category": "Instant Noodles & Canned Goods",
     "aisle": 2,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/pork-beans.png"
   },
   {
     "id": "green-peas",
@@ -293,7 +328,8 @@ window.HAULMART_PRODUCTS = [
     "price": 45,
     "category": "Instant Noodles & Canned Goods",
     "aisle": 2,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/green-peas.png"
   },
   {
     "id": "mushroom-pieces",
@@ -301,7 +337,8 @@ window.HAULMART_PRODUCTS = [
     "price": 58,
     "category": "Instant Noodles & Canned Goods",
     "aisle": 2,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/mushroom-pieces.png"
   },
   {
     "id": "fruit-cocktail",
@@ -309,7 +346,8 @@ window.HAULMART_PRODUCTS = [
     "price": 105,
     "category": "Instant Noodles & Canned Goods",
     "aisle": 2,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/fruit-cocktail.png"
   },
   {
     "id": "evaporated-milk",
@@ -317,7 +355,8 @@ window.HAULMART_PRODUCTS = [
     "price": 38,
     "category": "Instant Noodles & Canned Goods",
     "aisle": 2,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/evaporated-milk.png"
   },
   {
     "id": "nescafe-classic",
@@ -325,7 +364,8 @@ window.HAULMART_PRODUCTS = [
     "price": 185,
     "category": "Coffee, Milk & Breakfast",
     "aisle": 3,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/nescafe-classic.png"
   },
   {
     "id": "nescafe-gold",
@@ -333,7 +373,8 @@ window.HAULMART_PRODUCTS = [
     "price": 320,
     "category": "Coffee, Milk & Breakfast",
     "aisle": 3,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/nescafe-gold.png"
   },
   {
     "id": "great-taste-white",
@@ -341,7 +382,8 @@ window.HAULMART_PRODUCTS = [
     "price": 15,
     "category": "Coffee, Milk & Breakfast",
     "aisle": 3,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/great-taste-white.png"
   },
   {
     "id": "great-taste-choco",
@@ -349,7 +391,8 @@ window.HAULMART_PRODUCTS = [
     "price": 15,
     "category": "Coffee, Milk & Breakfast",
     "aisle": 3,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/great-taste-choco.png"
   },
   {
     "id": "kopiko-brown",
@@ -357,7 +400,8 @@ window.HAULMART_PRODUCTS = [
     "price": 16,
     "category": "Coffee, Milk & Breakfast",
     "aisle": 3,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/kopiko-brown.png"
   },
   {
     "id": "kopiko-blanca",
@@ -365,7 +409,8 @@ window.HAULMART_PRODUCTS = [
     "price": 16,
     "category": "Coffee, Milk & Breakfast",
     "aisle": 3,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/kopiko-blanca.png"
   },
   {
     "id": "bear-brand-powdered-milk",
@@ -373,7 +418,8 @@ window.HAULMART_PRODUCTS = [
     "price": 115,
     "category": "Coffee, Milk & Breakfast",
     "aisle": 3,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/bear-brand-powdered-milk.png"
   },
   {
     "id": "alaska-powdered-milk",
@@ -381,7 +427,8 @@ window.HAULMART_PRODUCTS = [
     "price": 125,
     "category": "Coffee, Milk & Breakfast",
     "aisle": 3,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/alaska-powdered-milk.png"
   },
   {
     "id": "birch-tree",
@@ -389,7 +436,8 @@ window.HAULMART_PRODUCTS = [
     "price": 130,
     "category": "Coffee, Milk & Breakfast",
     "aisle": 3,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/birch-tree.png"
   },
   {
     "id": "milo-1kg",
@@ -397,7 +445,8 @@ window.HAULMART_PRODUCTS = [
     "price": 285,
     "category": "Coffee, Milk & Breakfast",
     "aisle": 3,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/milo-1kg.png"
   },
   {
     "id": "ovaltine",
@@ -405,7 +454,8 @@ window.HAULMART_PRODUCTS = [
     "price": 240,
     "category": "Coffee, Milk & Breakfast",
     "aisle": 3,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/ovaltine.png"
   },
   {
     "id": "swiss-miss",
@@ -413,7 +463,8 @@ window.HAULMART_PRODUCTS = [
     "price": 110,
     "category": "Coffee, Milk & Breakfast",
     "aisle": 3,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/swiss-miss.png"
   },
   {
     "id": "alaska-evaporada",
@@ -421,7 +472,8 @@ window.HAULMART_PRODUCTS = [
     "price": 38,
     "category": "Coffee, Milk & Breakfast",
     "aisle": 3,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/alaska-evaporada.png"
   },
   {
     "id": "alaska-condensada",
@@ -429,7 +481,8 @@ window.HAULMART_PRODUCTS = [
     "price": 42,
     "category": "Coffee, Milk & Breakfast",
     "aisle": 3,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/alaska-condensada.png"
   },
   {
     "id": "peanut-butter",
@@ -437,7 +490,8 @@ window.HAULMART_PRODUCTS = [
     "price": 125,
     "category": "Coffee, Milk & Breakfast",
     "aisle": 3,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/peanut-butter.png"
   },
   {
     "id": "lily-s-peanut-butter",
@@ -445,7 +499,8 @@ window.HAULMART_PRODUCTS = [
     "price": 145,
     "category": "Coffee, Milk & Breakfast",
     "aisle": 3,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/lily-s-peanut-butter.png"
   },
   {
     "id": "nutella",
@@ -453,7 +508,8 @@ window.HAULMART_PRODUCTS = [
     "price": 320,
     "category": "Coffee, Milk & Breakfast",
     "aisle": 3,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/nutella.png"
   },
   {
     "id": "strawberry-jam",
@@ -461,7 +517,8 @@ window.HAULMART_PRODUCTS = [
     "price": 120,
     "category": "Coffee, Milk & Breakfast",
     "aisle": 3,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/strawberry-jam.png"
   },
   {
     "id": "honey",
@@ -469,7 +526,8 @@ window.HAULMART_PRODUCTS = [
     "price": 220,
     "category": "Coffee, Milk & Breakfast",
     "aisle": 3,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/honey.png"
   },
   {
     "id": "pancake-syrup",
@@ -477,7 +535,8 @@ window.HAULMART_PRODUCTS = [
     "price": 150,
     "category": "Coffee, Milk & Breakfast",
     "aisle": 3,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/pancake-syrup.png"
   },
   {
     "id": "corn-flakes",
@@ -589,7 +648,8 @@ window.HAULMART_PRODUCTS = [
     "price": 55,
     "category": "Cereals, Bread & Baking",
     "aisle": 4,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/white-sugar.png"
   },
   {
     "id": "baking-powder",
@@ -1435,7 +1495,8 @@ window.HAULMART_PRODUCTS = [
     "price": 350,
     "category": "Baby, Pharmacy & Health",
     "aisle": 10,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/pampers.png"
   },
   {
     "id": "eq-diapers",
@@ -1443,7 +1504,8 @@ window.HAULMART_PRODUCTS = [
     "price": 280,
     "category": "Baby, Pharmacy & Health",
     "aisle": 10,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/eq-diapers.png"
   },
   {
     "id": "huggies",
@@ -1451,7 +1513,8 @@ window.HAULMART_PRODUCTS = [
     "price": 380,
     "category": "Baby, Pharmacy & Health",
     "aisle": 10,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/huggies.png"
   },
   {
     "id": "baby-wipes",
@@ -1459,7 +1522,8 @@ window.HAULMART_PRODUCTS = [
     "price": 85,
     "category": "Baby, Pharmacy & Health",
     "aisle": 10,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/baby-wipes.png"
   },
   {
     "id": "johnson-s-baby-powder",
@@ -1467,7 +1531,8 @@ window.HAULMART_PRODUCTS = [
     "price": 75,
     "category": "Baby, Pharmacy & Health",
     "aisle": 10,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/johnson-s-baby-powder.png"
   },
   {
     "id": "baby-lotion",
@@ -1475,7 +1540,8 @@ window.HAULMART_PRODUCTS = [
     "price": 120,
     "category": "Baby, Pharmacy & Health",
     "aisle": 10,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/baby-lotion.png"
   },
   {
     "id": "baby-shampoo",
@@ -1483,7 +1549,8 @@ window.HAULMART_PRODUCTS = [
     "price": 95,
     "category": "Baby, Pharmacy & Health",
     "aisle": 10,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/baby-shampoo.png"
   },
   {
     "id": "biogesic",
@@ -1491,7 +1558,8 @@ window.HAULMART_PRODUCTS = [
     "price": 45,
     "category": "Baby, Pharmacy & Health",
     "aisle": 10,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/biogesic.png"
   },
   {
     "id": "neozep",
@@ -1499,7 +1567,8 @@ window.HAULMART_PRODUCTS = [
     "price": 12,
     "category": "Baby, Pharmacy & Health",
     "aisle": 10,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/neozep.png"
   },
   {
     "id": "medicol",
@@ -1507,7 +1576,8 @@ window.HAULMART_PRODUCTS = [
     "price": 15,
     "category": "Baby, Pharmacy & Health",
     "aisle": 10,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/medicol.png"
   },
   {
     "id": "vitamin-c",
@@ -1515,7 +1585,8 @@ window.HAULMART_PRODUCTS = [
     "price": 120,
     "category": "Baby, Pharmacy & Health",
     "aisle": 10,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/vitamin-c.png"
   },
   {
     "id": "enervon",
@@ -1523,7 +1594,8 @@ window.HAULMART_PRODUCTS = [
     "price": 165,
     "category": "Baby, Pharmacy & Health",
     "aisle": 10,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/enervon.png"
   },
   {
     "id": "ascorbic-acid",
@@ -1531,7 +1603,8 @@ window.HAULMART_PRODUCTS = [
     "price": 85,
     "category": "Baby, Pharmacy & Health",
     "aisle": 10,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/ascorbic-acid.png"
   },
   {
     "id": "band-aid",
@@ -1539,7 +1612,8 @@ window.HAULMART_PRODUCTS = [
     "price": 55,
     "category": "Baby, Pharmacy & Health",
     "aisle": 10,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/band-aid.png"
   },
   {
     "id": "alcohol",
@@ -1547,7 +1621,8 @@ window.HAULMART_PRODUCTS = [
     "price": 85,
     "category": "Baby, Pharmacy & Health",
     "aisle": 10,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/alcohol.png"
   },
   {
     "id": "hydrogen-peroxide",
@@ -1555,7 +1630,8 @@ window.HAULMART_PRODUCTS = [
     "price": 45,
     "category": "Baby, Pharmacy & Health",
     "aisle": 10,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/hydrogen-peroxide.png"
   },
   {
     "id": "cotton-balls",
@@ -1563,7 +1639,8 @@ window.HAULMART_PRODUCTS = [
     "price": 35,
     "category": "Baby, Pharmacy & Health",
     "aisle": 10,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/cotton-balls.png"
   },
   {
     "id": "face-mask",
@@ -1571,7 +1648,8 @@ window.HAULMART_PRODUCTS = [
     "price": 60,
     "category": "Baby, Pharmacy & Health",
     "aisle": 10,
-    "inStock": false
+    "inStock": false,
+    "image": "assets/products/face-mask.png"
   },
   {
     "id": "thermometer",
@@ -1579,7 +1657,8 @@ window.HAULMART_PRODUCTS = [
     "price": 180,
     "category": "Baby, Pharmacy & Health",
     "aisle": 10,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/thermometer.png"
   },
   {
     "id": "first-aid-kit",
@@ -1587,6 +1666,7 @@ window.HAULMART_PRODUCTS = [
     "price": 450,
     "category": "Baby, Pharmacy & Health",
     "aisle": 10,
-    "inStock": true
+    "inStock": true,
+    "image": "assets/products/first-aid-kit.png"
   }
 ];
