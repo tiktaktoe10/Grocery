@@ -142,9 +142,9 @@
           <img src="assets/haulmart-logo.png" alt="Haul Mart" class="admin-logo">
           <h1>Admin Access</h1>
           <form id="adminLogin" class="admin-login">
-            <label class="sr-only" for="adminCode">Admin passcode</label>
+            <label class="sr-only" for="adminPassword">Admin password</label>
             <input id="adminEmail" class="search-input" type="email" placeholder="Admin email" autocomplete="username">
-            <input id="adminCode" class="search-input" type="password" placeholder="Password" autocomplete="current-password">
+            <input id="adminPassword" class="search-input" type="password" placeholder="Password" autocomplete="current-password">
             <button class="primary-button" type="submit">Unlock</button>
           </form>
           <p id="adminLoginMessage" class="admin-message is-hidden" aria-live="polite"></p>
@@ -229,23 +229,6 @@
                   <button class="primary-button full-width" type="submit">Save Section</button>
                 </form>
                 <div id="mapSectionList" class="map-section-list" aria-live="polite"></div>
-              </section>
-
-              <section class="tool-panel">
-                <div class="panel-heading">
-                  <h2>Change Admin Password</h2>
-                  <span id="passcodeStatus" class="count-chip muted">Protected</span>
-                </div>
-                <form id="passcodeForm" class="admin-form passcode-form">
-                  <label for="currentPasscode">Current password</label>
-                  <input id="currentPasscode" type="password" placeholder="Current password" autocomplete="current-password">
-                  <label for="newPasscode">New password</label>
-                  <input id="newPasscode" type="password" placeholder="New password" autocomplete="new-password">
-                  <label for="confirmPasscode">Confirm new password</label>
-                  <input id="confirmPasscode" type="password" placeholder="Confirm new password" autocomplete="new-password">
-                  <p id="passcodeMessage" class="admin-message is-hidden" aria-live="polite"></p>
-                  <button class="primary-button full-width" type="submit">Change Admin Password</button>
-                </form>
               </section>
             </div>
           </div>

@@ -48,18 +48,8 @@
     signInWithEmailAndPassword(email, password) {
       return auth.signInWithEmailAndPassword(email, password);
     },
-    signIn(email, password) {
-      return this.signInWithEmailAndPassword(email, password);
-    },
     signOut() {
       return auth.signOut();
-    },
-    async updatePassword(currentPassword, nextPassword) {
-      const user = auth.currentUser;
-      if (!user?.email) throw new Error("Admin is not signed in.");
-      const credential = firebase.auth.EmailAuthProvider.credential(user.email, currentPassword);
-      await user.reauthenticateWithCredential(credential);
-      await user.updatePassword(nextPassword);
     },
     onProducts(callback, onError) {
       return db.collection(COLLECTIONS.products).onSnapshot((snapshot) => {

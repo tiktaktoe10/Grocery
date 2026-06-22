@@ -6,8 +6,7 @@ const CURRENCY = new Intl.NumberFormat("en-PH", {
 
 const ADMIN_CONFIG = {
   maxFailedAttempts: 3,
-  lockoutMs: 30000,
-  minPasscodeLength: 6
+  lockoutMs: 30000
 };
 
 const STORAGE_KEYS = {
@@ -247,7 +246,7 @@ function cacheElements() {
   els.adminPanel = document.querySelector("#adminPanel");
   els.adminLogin = document.querySelector("#adminLogin");
   els.adminEmail = document.querySelector("#adminEmail");
-  els.adminCode = document.querySelector("#adminCode");
+  els.adminPassword = document.querySelector("#adminPassword");
   els.adminLoginMessage = document.querySelector("#adminLoginMessage");
   els.adminAccessLink = document.querySelector("#adminAccessLink");
   els.adminBackButton = document.querySelector("#adminBackButton");
@@ -275,12 +274,6 @@ function cacheElements() {
   els.mapSectionMessage = document.querySelector("#mapSectionMessage");
   els.mapSectionStatus = document.querySelector("#mapSectionStatus");
   els.mapSectionList = document.querySelector("#mapSectionList");
-  els.passcodeForm = document.querySelector("#passcodeForm");
-  els.currentPasscode = document.querySelector("#currentPasscode");
-  els.newPasscode = document.querySelector("#newPasscode");
-  els.confirmPasscode = document.querySelector("#confirmPasscode");
-  els.passcodeMessage = document.querySelector("#passcodeMessage");
-  els.passcodeStatus = document.querySelector("#passcodeStatus");
 }
 
 function wireEvents() {
@@ -374,7 +367,6 @@ function wireEvents() {
   els.newImageUpload.addEventListener("change", () => handleImageUpload(els.newImageUpload, els.newImage, els.newImagePreview));
   els.adminAddForm.addEventListener("submit", addAdminProduct);
   els.mapSectionForm?.addEventListener("submit", saveMapSection);
-  els.passcodeForm?.addEventListener("submit", handlePasscodeChange);
 }
 
 function setRole(role) {
@@ -398,7 +390,7 @@ function showAdminAccess() {
   window.requestAnimationFrame(() => {
     adminTarget?.scrollIntoView({ behavior: "smooth", block: "start" });
     if (!state.adminUnlocked) {
-      els.adminCode?.focus();
+      els.adminPassword?.focus();
     }
   });
 }
@@ -1137,7 +1129,7 @@ async function handleAdminLogin(event) {
   }
 
   const email = els.adminEmail.value.trim();
-  const password = els.adminCode.value;
+  const password = els.adminPassword.value;
   if (!email || !password) {
     showAdminLoginMessage("Enter the admin email and password.", "error");
     return;
@@ -1149,13 +1141,13 @@ async function handleAdminLogin(event) {
     state.adminFailedAttempts = 0;
     state.adminLockoutUntil = 0;
     els.adminEmail.value = "";
-    els.adminCode.value = "";
+    els.adminPassword.value = "";
     showAdminLoginMessage("", "");
     renderAdminGate();
   } catch (error) {
     console.error("Firebase authentication error:", error);
     state.adminFailedAttempts += 1;
-    els.adminCode.value = "";
+    els.adminPassword.value = "";
     const firebaseMessage = getFirebaseErrorMessage(error);
     const attemptsLeft = ADMIN_CONFIG.maxFailedAttempts - state.adminFailedAttempts;
     if (attemptsLeft <= 0) {
@@ -1178,7 +1170,7 @@ async function lockAdmin() {
 function updateAdminLoginState() {
   const locked = state.adminLockoutUntil > Date.now();
   if (els.adminEmail) els.adminEmail.disabled = locked;
-  els.adminCode.disabled = locked;
+  els.adminPassword.disabled = locked;
   const submit = els.adminLogin.querySelector("button[type='submit']");
   if (submit) submit.disabled = locked;
   if (!locked) return;
@@ -1191,7 +1183,7 @@ function updateAdminLoginState() {
     }
     showAdminLoginMessage("You can try again now.", "success");
     if (els.adminEmail) els.adminEmail.disabled = false;
-    els.adminCode.disabled = false;
+    els.adminPassword.disabled = false;
     if (submit) submit.disabled = false;
   }, Math.min(state.adminLockoutUntil - Date.now(), 1000));
 }
@@ -1202,47 +1194,6 @@ function showAdminLoginMessage(message, type) {
 
 function getFirebaseErrorMessage(error) {
   return error?.message || error?.code || String(error || "Firebase authentication failed.");
-}
-
-async function handlePasscodeChange(event) {
-  event.preventDefault();
-  const current = els.currentPasscode.value;
-  const next = els.newPasscode.value.trim();
-  const confirm = els.confirmPasscode.value.trim();
-
-  if (!state.firebase?.updatePassword || !state.remoteUser) {
-    showAdminMessage(els.passcodeMessage, "Sign in as admin before changing the password.", "error");
-    setPasscodeStatus("Sign in required");
-    return;
-  }
-
-  if (next.length < ADMIN_CONFIG.minPasscodeLength) {
-    showAdminMessage(els.passcodeMessage, `New password must be at least ${ADMIN_CONFIG.minPasscodeLength} characters.`, "error");
-    setPasscodeStatus("Too short");
-    return;
-  }
-
-  if (next !== confirm) {
-    showAdminMessage(els.passcodeMessage, "New passwords do not match.", "error");
-    setPasscodeStatus("Confirmation needed");
-    return;
-  }
-
-  try {
-    setPasscodeStatus("Updating");
-    await state.firebase.updatePassword(current, next);
-    els.passcodeForm.reset();
-    showAdminMessage(els.passcodeMessage, "Admin password updated.", "success");
-    setPasscodeStatus("Updated");
-    window.setTimeout(() => setPasscodeStatus("Protected"), 1600);
-  } catch {
-    showAdminMessage(els.passcodeMessage, "Current password is incorrect or the session expired.", "error");
-    setPasscodeStatus("Check current password");
-  }
-}
-
-function setPasscodeStatus(statusText) {
-  if (els.passcodeStatus) els.passcodeStatus.textContent = statusText;
 }
 
 function showAdminMessage(node, message, type) {
