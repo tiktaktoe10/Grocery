@@ -1716,6 +1716,11 @@ h2 {
   text-align: center;
 }
 
+.image-preview:has(.image-processing-note) {
+  gap: 8px;
+  align-content: center;
+}
+
 .image-preview img {
   display: block;
   width: 100%;
@@ -1728,6 +1733,29 @@ h2 {
 
 .image-preview.is-empty {
   padding: 18px;
+}
+
+.image-processing-note {
+  width: 100%;
+  margin: 0;
+  padding: 0 12px 12px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.image-processing-note.is-success {
+  color: var(--green);
+}
+
+.image-processing-note.is-warning {
+  color: var(--danger);
+}
+
+.image-processing-note.is-working {
+  padding: 12px;
+  color: var(--blue);
 }
 
 .form-pair {

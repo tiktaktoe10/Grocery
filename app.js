@@ -24,6 +24,8 @@ const STORAGE_KEYS = {
 
 const PRODUCT_IMAGE_BASE_PATH = "assets/products/";
 const IMAGE_FILE_EXTENSION = /\.(avif|gif|jpe?g|png|svg|webp)$/i;
+const DATA_IMAGE_PATTERN = /^data:image\/(?:avif|gif|jpe?g|png|svg\+xml|webp);base64,/i;
+const BACKGROUND_REMOVAL_MAX_SIZE = 1100;
 let knownProductImagePaths = null;
 
 const LOCATION_ZONES = [
@@ -1270,6 +1272,7 @@ function renderVariantEditorRow(variant = {}) {
         <div class="form-pair">
           <label>Image URL</label>
           <input type="text" value="${escapeHTML(variant.image || "")}" placeholder="assets/products/product-variant.jpg" data-inline-variant-image>
+          <input type="file" accept="image/*" aria-label="Upload variant image" data-inline-variant-image-upload>
         </div>
       </div>
       ${renderImagePreview(variant.image).replace("data-inline-image-preview", "data-variant-image-preview")}
@@ -1380,9 +1383,20 @@ function handleInlineAdminInput(event) {
 
 function handleInlineAdminChange(event) {
   const upload = event.target.closest("[data-inline-image-upload]");
-  if (!upload) return;
-  const form = upload.closest("[data-inline-edit]");
-  handleImageUpload(upload, form.elements.image, form.querySelector("[data-inline-image-preview]"));
+  if (upload) {
+    const form = upload.closest("[data-inline-edit]");
+    handleImageUpload(upload, form.elements.image, form.querySelector("[data-inline-image-preview]"));
+    return;
+  }
+
+  const variantUpload = event.target.closest("[data-inline-variant-image-upload]");
+  if (!variantUpload) return;
+  const row = variantUpload.closest("[data-variant-row]");
+  handleImageUpload(
+    variantUpload,
+    row.querySelector("[data-inline-variant-image]"),
+    row.querySelector("[data-variant-image-preview]")
+  );
 }
 
 function handleInlineImagePaste(event) {
@@ -1391,7 +1405,12 @@ function handleInlineImagePaste(event) {
   const variantImage = event.target.closest("[data-inline-variant-image]");
   if (variantImage) {
     const row = variantImage.closest("[data-variant-row]");
-    handleImagePaste(event, variantImage, row.querySelector("[data-variant-image-preview]"));
+    handleImagePaste(
+      event,
+      variantImage,
+      row.querySelector("[data-variant-image-preview]"),
+      row.querySelector("[data-inline-variant-image-upload]")
+    );
     return;
   }
 
@@ -1513,7 +1532,7 @@ function renderAfterMapSettingsChange(statusText) {
   window.setTimeout(renderMapSettings, 1600);
 }
 
-function handleImageUpload(fileInput, textInput, previewNode) {
+async function handleImageUpload(fileInput, textInput, previewNode) {
   const file = fileInput.files?.[0];
   if (!file) return;
   if (!file.type.startsWith("image/")) {
@@ -1522,19 +1541,31 @@ function handleImageUpload(fileInput, textInput, previewNode) {
     return;
   }
 
-  textInput.value = `${PRODUCT_IMAGE_BASE_PATH}${sanitizeProductImageFileName(file.name)}`;
-  updateImagePreview(previewNode, textInput.value);
+  const originalImage = await readFileAsDataURL(file);
+  await processAdminImageSource({
+    source: file,
+    originalImage,
+    textInput,
+    previewNode,
+    fileInput
+  });
 }
 
-function handleImagePaste(event, textInput, previewNode, fileInput = null) {
+async function handleImagePaste(event, textInput, previewNode, fileInput = null) {
   if (!event.clipboardData || !textInput || !previewNode) return;
 
   const imageFile = getClipboardImageFile(event.clipboardData);
   if (imageFile) {
     event.preventDefault();
     if (fileInput) fileInput.value = "";
-    textInput.value = `${PRODUCT_IMAGE_BASE_PATH}${sanitizeProductImageFileName(imageFile.name || "pasted-product-image.png")}`;
-    updateImagePreview(previewNode, textInput.value);
+    const originalImage = await readFileAsDataURL(imageFile);
+    await processAdminImageSource({
+      source: imageFile,
+      originalImage,
+      textInput,
+      previewNode,
+      fileInput
+    });
     return;
   }
 
@@ -1542,8 +1573,14 @@ function handleImagePaste(event, textInput, previewNode, fileInput = null) {
   if (!imageValue) return;
   event.preventDefault();
   if (fileInput) fileInput.value = "";
-  textInput.value = normalizeProductImagePath(imageValue);
-  updateImagePreview(previewNode, textInput.value || imageValue);
+  const originalImage = normalizeProductImagePath(imageValue) || imageValue;
+  await processAdminImageSource({
+    source: originalImage,
+    originalImage,
+    textInput,
+    previewNode,
+    fileInput
+  });
 }
 
 function getClipboardImageFile(clipboardData) {
@@ -1582,14 +1619,239 @@ function decodeHTML(value) {
   return parser.value;
 }
 
+async function processAdminImageSource({ source, originalImage, textInput, previewNode, fileInput = null }) {
+  const fallbackImage = normalizeProductImagePath(originalImage) || originalImage || textInput.value;
+  textInput.value = fallbackImage;
+  setImageProcessingState(previewNode, "Removing background...", "working");
+  try {
+    const result = await removeImageBackgroundFromSource(source);
+    textInput.value = result.dataUrl;
+    if (fileInput) fileInput.value = "";
+    updateImagePreview(previewNode, textInput.value, "Background removed. Transparent PNG ready.", "success");
+  } catch (error) {
+    textInput.value = fallbackImage;
+    updateImagePreview(previewNode, textInput.value, "Background removal was not available for this image. Original image kept.", "warning");
+  }
+}
+
+async function removeImageBackgroundFromSource(source) {
+  const image = await loadImageForCanvas(source);
+  const { width, height } = getCanvasSize(image.width || image.naturalWidth, image.height || image.naturalHeight);
+  if (!width || !height) throw new Error("Image could not be read.");
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  context.clearRect(0, 0, width, height);
+  context.drawImage(image, 0, 0, width, height);
+
+  const imageData = context.getImageData(0, 0, width, height);
+  const background = estimateBackgroundColor(imageData, width, height);
+  if (!background) throw new Error("Background is not plain enough.");
+
+  const mask = createConnectedBackgroundMask(imageData, width, height, background);
+  const removedCount = applyTransparentBackground(imageData, width, height, mask, background);
+  if (removedCount < width * height * 0.08) throw new Error("No removable background found.");
+
+  context.putImageData(imageData, 0, 0);
+  return { dataUrl: canvas.toDataURL("image/png"), width, height };
+}
+
+function getCanvasSize(sourceWidth, sourceHeight) {
+  const width = Math.max(1, Number(sourceWidth) || 0);
+  const height = Math.max(1, Number(sourceHeight) || 0);
+  const scale = Math.min(1, BACKGROUND_REMOVAL_MAX_SIZE / Math.max(width, height));
+  return {
+    width: Math.round(width * scale),
+    height: Math.round(height * scale)
+  };
+}
+
+async function loadImageForCanvas(source) {
+  if (source instanceof Blob) {
+    return loadBlobImage(source);
+  }
+
+  const imageValue = String(source || "").trim();
+  if (!imageValue) throw new Error("Image source is empty.");
+
+  if (/^https?:\/\//i.test(imageValue)) {
+    try {
+      const response = await fetch(imageValue, { mode: "cors" });
+      if (!response.ok) throw new Error("Image URL could not be loaded.");
+      const blob = await response.blob();
+      if (!blob.type.startsWith("image/")) throw new Error("URL is not an image.");
+      return loadBlobImage(blob);
+    } catch {
+      return loadImageElement(imageValue);
+    }
+  }
+
+  return loadImageElement(getImageSource(imageValue) || imageValue);
+}
+
+async function loadBlobImage(blob) {
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    return await loadImageElement(objectUrl);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+function loadImageElement(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Image could not be loaded."));
+    image.src = src;
+  });
+}
+
+function estimateBackgroundColor(imageData, width, height) {
+  const data = imageData.data;
+  const samples = [];
+  const step = Math.max(1, Math.floor(Math.min(width, height) / 48));
+
+  for (let x = 0; x < width; x += step) {
+    samples.push(getPixel(data, width, x, 0), getPixel(data, width, x, height - 1));
+  }
+  for (let y = 0; y < height; y += step) {
+    samples.push(getPixel(data, width, 0, y), getPixel(data, width, width - 1, y));
+  }
+
+  const opaqueSamples = samples.filter((pixel) => pixel.a > 180);
+  if (opaqueSamples.length < 8) return null;
+
+  const color = {
+    r: median(opaqueSamples.map((pixel) => pixel.r)),
+    g: median(opaqueSamples.map((pixel) => pixel.g)),
+    b: median(opaqueSamples.map((pixel) => pixel.b))
+  };
+  const distances = opaqueSamples.map((pixel) => colorDistance(pixel, color));
+  const averageDistance = distances.reduce((sum, value) => sum + value, 0) / distances.length;
+  const solidShare = distances.filter((value) => value <= 46).length / distances.length;
+  const isPlainWhite = color.r > 225 && color.g > 225 && color.b > 225 && solidShare > 0.5;
+
+  if (!isPlainWhite && (solidShare < 0.72 || averageDistance > 38)) return null;
+
+  return {
+    ...color,
+    threshold: clamp(Math.round(averageDistance + (isPlainWhite ? 42 : 34)), 34, 74)
+  };
+}
+
+function createConnectedBackgroundMask(imageData, width, height, background) {
+  const data = imageData.data;
+  const total = width * height;
+  const mask = new Uint8Array(total);
+  const queue = [];
+
+  const enqueue = (x, y) => {
+    if (x < 0 || y < 0 || x >= width || y >= height) return;
+    const index = y * width + x;
+    if (mask[index]) return;
+    const pixel = getPixel(data, width, x, y);
+    if (pixel.a < 16 || colorDistance(pixel, background) <= background.threshold) {
+      mask[index] = 1;
+      queue.push(index);
+    }
+  };
+
+  for (let x = 0; x < width; x += 1) {
+    enqueue(x, 0);
+    enqueue(x, height - 1);
+  }
+  for (let y = 0; y < height; y += 1) {
+    enqueue(0, y);
+    enqueue(width - 1, y);
+  }
+
+  for (let head = 0; head < queue.length; head += 1) {
+    const index = queue[head];
+    const x = index % width;
+    const y = Math.floor(index / width);
+    enqueue(x + 1, y);
+    enqueue(x - 1, y);
+    enqueue(x, y + 1);
+    enqueue(x, y - 1);
+  }
+
+  return mask;
+}
+
+function applyTransparentBackground(imageData, width, height, mask, background) {
+  const data = imageData.data;
+  let removedCount = 0;
+
+  for (let index = 0; index < mask.length; index += 1) {
+    if (!mask[index]) continue;
+    data[index * 4 + 3] = 0;
+    removedCount += 1;
+  }
+
+  for (let y = 1; y < height - 1; y += 1) {
+    for (let x = 1; x < width - 1; x += 1) {
+      const index = y * width + x;
+      if (mask[index]) continue;
+      const touchesBackground = mask[index - 1] || mask[index + 1] || mask[index - width] || mask[index + width];
+      if (!touchesBackground) continue;
+      const pixel = getPixel(data, width, x, y);
+      const distance = colorDistance(pixel, background);
+      if (distance > background.threshold + 28) continue;
+      const alpha = clamp(Math.round(((distance - background.threshold) / 28) * 255), 0, 255);
+      data[index * 4 + 3] = Math.min(data[index * 4 + 3], alpha);
+    }
+  }
+
+  return removedCount;
+}
+
+function getPixel(data, width, x, y) {
+  const index = (y * width + x) * 4;
+  return {
+    r: data[index],
+    g: data[index + 1],
+    b: data[index + 2],
+    a: data[index + 3]
+  };
+}
+
+function colorDistance(pixel, color) {
+  const red = pixel.r - color.r;
+  const green = pixel.g - color.g;
+  const blue = pixel.b - color.b;
+  return Math.sqrt(red * red + green * green + blue * blue);
+}
+
+function median(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)] || 0;
+}
+
+function readFileAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
 function normalizeProductImagePath(value) {
   let image = decodeHTML(String(value || "")).trim().replaceAll("\\", "/");
   if (!image) return "";
 
+  if (DATA_IMAGE_PATTERN.test(image)) return image;
+
+  if (/^https?:\/\//i.test(image)) return image;
+
   const assetMatch = image.match(/(?:^|\/)(assets\/products\/[^?#]+)/i);
   if (assetMatch) return cleanRelativeProductImagePath(assetMatch[1]);
 
-  if (/^(https?:|data:|file:|blob:)/i.test(image) || /^[a-zA-Z]:\//.test(image)) {
+  if (/^(data:|file:|blob:)/i.test(image) || /^[a-zA-Z]:\//.test(image)) {
     return "";
   }
 
@@ -1622,14 +1884,15 @@ function sanitizeProductImageFileName(fileName) {
     .replace(/\s+/g, " ") || "product-image.png";
 }
 
-function updateImagePreview(previewNode, imageValue) {
+function updateImagePreview(previewNode, imageValue, message = "", type = "") {
+  if (!previewNode) return;
   const rawImage = String(imageValue || "").trim();
   const image = normalizeProductImagePath(rawImage);
   previewNode.classList.toggle("is-empty", !image);
   previewNode.innerHTML = image
-    ? renderPreviewImage(image)
+    ? `${renderPreviewImage(image)}${renderImageProcessingNote(message, type)}`
     : rawImage
-      ? `Use a relative path like ${PRODUCT_IMAGE_BASE_PATH}product-name.jpg`
+      ? `Use a relative path like ${PRODUCT_IMAGE_BASE_PATH}product-name.jpg${renderImageProcessingNote(message, type)}`
       : "Image preview";
 }
 
@@ -1644,6 +1907,18 @@ function renderImagePreview(imageValue) {
 
 function renderPreviewImage(image) {
   return `<img src="${escapeHTML(getImageSource(image))}" alt="Product image preview" onerror="replaceBrokenPreviewImage(this)">`;
+}
+
+function setImageProcessingState(previewNode, message, type = "working") {
+  if (!previewNode) return;
+  previewNode.classList.remove("is-empty");
+  previewNode.innerHTML = renderImageProcessingNote(message, type);
+}
+
+function renderImageProcessingNote(message, type = "") {
+  return message
+    ? `<p class="image-processing-note ${type ? `is-${escapeHTML(type)}` : ""}">${escapeHTML(message)}</p>`
+    : "";
 }
 
 function getImageSource(imageValue) {
@@ -2219,10 +2494,16 @@ function mergeProductImage(defaultProduct, savedProduct) {
 }
 
 function chooseDeployableProductImage(productImage, mappedImage) {
+  if (isPortableAdminImage(productImage)) return productImage;
   if (productImage && (!mappedImage || productImage === mappedImage || hasKnownProductImagePath(productImage))) {
     return productImage;
   }
   return mappedImage || productImage;
+}
+
+function isPortableAdminImage(imagePath) {
+  const image = String(imagePath || "").trim();
+  return DATA_IMAGE_PATTERN.test(image) || /^https?:\/\//i.test(image);
 }
 
 function hasKnownProductImagePath(imagePath) {
