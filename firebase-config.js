@@ -35,7 +35,8 @@
 
   const COLLECTIONS = {
     products: "products",
-    mapSections: "mapSections"
+    mapSections: "mapSections",
+    groceryLists: "groceryLists"
   };
 
   const remote = {
@@ -64,6 +65,18 @@
     },
     deleteProduct(productId) {
       return db.collection(COLLECTIONS.products).doc(productId).delete();
+    },
+    onGroceryList(clientId, callback, onError) {
+      return db.collection(COLLECTIONS.groceryLists).doc(clientId).onSnapshot((snapshot) => {
+        callback(snapshot.exists ? snapshot.data() : null);
+      }, onError);
+    },
+    saveGroceryList(clientId, items, updatedAtMillis) {
+      return db.collection(COLLECTIONS.groceryLists).doc(clientId).set({
+        items: stripUndefined(items),
+        updatedAtMillis,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
     },
     async replaceProducts(products) {
       const snapshot = await db.collection(COLLECTIONS.products).get();

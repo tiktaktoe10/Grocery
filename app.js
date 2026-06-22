@@ -10,9 +10,11 @@ const ADMIN_CONFIG = {
 };
 
 const STORAGE_KEYS = {
+  clientId: "haulmart.client.id.v1",
   products: "haulmart.products.v1",
   deletedProducts: "haulmart.products.deleted.v1",
   list: "haulmart.list.v1",
+  listUpdatedAt: "haulmart.list.updatedAt.v1",
   budget: "haulmart.budget.v1",
   mapSections: "haulmart.map.sections.v1",
   wallRenameMigration: "haulmart.wall.rename.456.v1"
@@ -161,11 +163,13 @@ const DEFAULT_PRODUCTS = Array.isArray(window.HAULMART_PRODUCTS)
 const DEFAULT_PRODUCT_IDS = new Set(DEFAULT_PRODUCTS.map((product) => product.id));
 
 const state = {
+  clientId: getClientId(),
   role: "customer",
   tab: "navigation",
   products: loadProducts(),
   deletedProductIds: readJSON(STORAGE_KEYS.deletedProducts, []),
-  groceryList: readJSON(STORAGE_KEYS.list, []),
+  groceryList: loadGroceryList(),
+  groceryListUpdatedAt: readNumber(STORAGE_KEYS.listUpdatedAt, 0),
   budget: readJSON(STORAGE_KEYS.budget, []),
   mapSections: loadMapSections(),
   category: "all",
@@ -232,6 +236,7 @@ function cacheElements() {
   els.groceryList = document.querySelector("#groceryList");
   els.listCount = document.querySelector("#listCount");
   els.listRoute = document.querySelector("#listRoute");
+  els.listMessage = document.querySelector("#listMessage");
   els.clearFinished = document.querySelector("#clearFinished");
   els.budgetForm = document.querySelector("#budgetForm");
   els.budgetInput = document.querySelector("#budgetInput");
@@ -475,6 +480,12 @@ function connectFirebase() {
     setAdminStatus("Firebase map sync failed");
     console.error(error);
   }));
+
+  if (remote.onGroceryList) {
+    state.firebaseUnsubscribes.push(remote.onGroceryList(state.clientId, applyRemoteGroceryList, (error) => {
+      console.error("Firestore shopping list sync failed:", error);
+    }));
+  }
 }
 
 function renderInventoryViews() {
@@ -863,7 +874,8 @@ function addListItem(label, productId = null, variantId = null) {
     done: false
   });
 
-  saveJSON(STORAGE_KEYS.list, state.groceryList);
+  persistGroceryList();
+  showListMessage("", "");
   renderGroceryList();
 }
 
@@ -938,7 +950,8 @@ function handleListClick(event) {
 
   if (button.dataset.action === "delete-list") {
     state.groceryList = state.groceryList.filter((listItem) => listItem.id !== item.id);
-    saveJSON(STORAGE_KEYS.list, state.groceryList);
+    persistGroceryList();
+    showListMessage("", "");
     renderGroceryList();
   }
 }
@@ -950,14 +963,68 @@ function handleListChange(event) {
   const item = state.groceryList.find((listItem) => listItem.id === itemNode.dataset.id);
   if (!item) return;
   item.done = checkbox.checked;
-  saveJSON(STORAGE_KEYS.list, state.groceryList);
+  persistGroceryList();
+  showListMessage("", "");
   renderGroceryList();
 }
 
 function clearFinishedItems() {
+  const completed = state.groceryList.filter((item) => item.done);
+  if (!completed.length) {
+    showListMessage("No completed items to clear.", "");
+    return;
+  }
+
   state.groceryList = state.groceryList.filter((item) => !item.done);
-  saveJSON(STORAGE_KEYS.list, state.groceryList);
+  persistGroceryList({ showSyncError: true });
   renderGroceryList();
+  showListMessage(`Cleared ${completed.length} completed ${completed.length === 1 ? "item" : "items"}.`, "success");
+}
+
+function persistGroceryList(options = {}) {
+  const updatedAt = Date.now();
+  state.groceryList = state.groceryList.map(normalizeGroceryListItem).filter(Boolean);
+  state.groceryListUpdatedAt = updatedAt;
+  saveJSON(STORAGE_KEYS.list, state.groceryList);
+  saveJSON(STORAGE_KEYS.listUpdatedAt, updatedAt);
+  saveRemoteGroceryList(updatedAt, options.showSyncError);
+}
+
+async function saveRemoteGroceryList(updatedAt = state.groceryListUpdatedAt, showSyncError = false) {
+  if (!state.firebaseReady || !state.firebase?.saveGroceryList) return;
+  try {
+    await state.firebase.saveGroceryList(state.clientId, state.groceryList, updatedAt);
+  } catch (error) {
+    console.error("Firestore shopping list sync failed:", error);
+    if (showSyncError) {
+      showListMessage("List updated on this device. Firestore sync failed.", "error");
+    }
+  }
+}
+
+function applyRemoteGroceryList(remoteList) {
+  if (!remoteList) {
+    if (state.groceryList.length) saveRemoteGroceryList();
+    return;
+  }
+
+  const remoteUpdatedAt = Number(remoteList.updatedAtMillis) || 0;
+  if (remoteUpdatedAt > state.groceryListUpdatedAt) {
+    state.groceryList = normalizeGroceryListItems(remoteList.items);
+    state.groceryListUpdatedAt = remoteUpdatedAt;
+    saveJSON(STORAGE_KEYS.list, state.groceryList);
+    saveJSON(STORAGE_KEYS.listUpdatedAt, remoteUpdatedAt);
+    renderGroceryList();
+    return;
+  }
+
+  if (state.groceryListUpdatedAt > remoteUpdatedAt) {
+    saveRemoteGroceryList();
+  }
+}
+
+function showListMessage(message, type) {
+  showAdminMessage(els.listMessage, message, type);
 }
 
 function handleBudgetSubmit(event) {
@@ -1433,7 +1500,7 @@ async function removeAdminProduct(productId) {
 
   persistProducts();
   if (!state.firebaseReady) saveJSON(STORAGE_KEYS.deletedProducts, state.deletedProductIds);
-  saveJSON(STORAGE_KEYS.list, state.groceryList);
+  persistGroceryList();
   saveJSON(STORAGE_KEYS.budget, state.budget);
   renderAfterInventoryChange("Removed");
 }
@@ -2397,6 +2464,29 @@ function getProductVariantSearchScore(product, query) {
   return scores.length ? Math.min(...scores) : null;
 }
 
+function loadGroceryList() {
+  return normalizeGroceryListItems(readJSON(STORAGE_KEYS.list, []));
+}
+
+function normalizeGroceryListItems(items) {
+  if (!Array.isArray(items)) return [];
+  return items
+    .map(normalizeGroceryListItem)
+    .filter(Boolean);
+}
+
+function normalizeGroceryListItem(item) {
+  const label = String(item?.label || "").trim();
+  if (!label) return null;
+  return {
+    id: String(item.id || createId("list")),
+    label,
+    productId: item.productId ? String(item.productId) : null,
+    variantId: item.variantId ? String(item.variantId) : null,
+    done: Boolean(item.done)
+  };
+}
+
 function loadMapSections() {
   const saved = readJSON(STORAGE_KEYS.mapSections, []);
   if (!Array.isArray(saved)) return [];
@@ -2741,8 +2831,21 @@ function readJSON(key, fallback) {
   }
 }
 
+function readNumber(key, fallback = 0) {
+  const value = Number(localStorage.getItem(key));
+  return Number.isFinite(value) ? value : fallback;
+}
+
 function saveJSON(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
+}
+
+function getClientId() {
+  const existing = localStorage.getItem(STORAGE_KEYS.clientId);
+  if (existing) return existing;
+  const clientId = createId("customer");
+  localStorage.setItem(STORAGE_KEYS.clientId, clientId);
+  return clientId;
 }
 
 function normalize(value) {
