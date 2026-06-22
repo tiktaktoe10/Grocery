@@ -143,7 +143,8 @@
           <h1>Admin Access</h1>
           <form id="adminLogin" class="admin-login">
             <label class="sr-only" for="adminCode">Admin passcode</label>
-            <input id="adminCode" class="search-input" type="password" placeholder="Passcode" autocomplete="current-password">
+            <input id="adminEmail" class="search-input" type="email" placeholder="Admin email" autocomplete="username">
+            <input id="adminCode" class="search-input" type="password" placeholder="Password" autocomplete="current-password">
             <button class="primary-button" type="submit">Unlock</button>
           </form>
           <p id="adminLoginMessage" class="admin-message is-hidden" aria-live="polite"></p>
@@ -232,18 +233,18 @@
 
               <section class="tool-panel">
                 <div class="panel-heading">
-                  <h2>Change Admin Passcode</h2>
+                  <h2>Change Admin Password</h2>
                   <span id="passcodeStatus" class="count-chip muted">Protected</span>
                 </div>
                 <form id="passcodeForm" class="admin-form passcode-form">
-                  <label for="currentPasscode">Current passcode</label>
-                  <input id="currentPasscode" type="password" placeholder="Current passcode" autocomplete="current-password">
-                  <label for="newPasscode">New passcode</label>
-                  <input id="newPasscode" type="password" placeholder="New passcode" autocomplete="new-password">
-                  <label for="confirmPasscode">Confirm new passcode</label>
-                  <input id="confirmPasscode" type="password" placeholder="Confirm new passcode" autocomplete="new-password">
+                  <label for="currentPasscode">Current password</label>
+                  <input id="currentPasscode" type="password" placeholder="Current password" autocomplete="current-password">
+                  <label for="newPasscode">New password</label>
+                  <input id="newPasscode" type="password" placeholder="New password" autocomplete="new-password">
+                  <label for="confirmPasscode">Confirm new password</label>
+                  <input id="confirmPasscode" type="password" placeholder="Confirm new password" autocomplete="new-password">
                   <p id="passcodeMessage" class="admin-message is-hidden" aria-live="polite"></p>
-                  <button class="primary-button full-width" type="submit">Change Admin Passcode</button>
+                  <button class="primary-button full-width" type="submit">Change Admin Password</button>
                 </form>
               </section>
             </div>
@@ -260,6 +261,12 @@
 
     <script src="data/products.js"></script>
     <script src="data/product-images.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics-compat.js"></script>
+    <script src="firebase-config.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

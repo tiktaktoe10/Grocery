@@ -5,10 +5,9 @@ const CURRENCY = new Intl.NumberFormat("en-PH", {
 });
 
 const ADMIN_CONFIG = {
-  defaultPasscode: "7391",
   maxFailedAttempts: 3,
   lockoutMs: 30000,
-  minPasscodeLength: 4
+  minPasscodeLength: 6
 };
 
 const STORAGE_KEYS = {
@@ -17,9 +16,7 @@ const STORAGE_KEYS = {
   list: "haulmart.list.v1",
   budget: "haulmart.budget.v1",
   mapSections: "haulmart.map.sections.v1",
-  wallRenameMigration: "haulmart.wall.rename.456.v1",
-  admin: "haulmart.admin.v1",
-  adminPasscode: "haulmart.admin.passcode.v1"
+  wallRenameMigration: "haulmart.wall.rename.456.v1"
 };
 
 const PRODUCT_IMAGE_BASE_PATH = "assets/products/";
@@ -180,9 +177,16 @@ const state = {
   mapOpen: true,
   mapProductId: null,
   mapFocusTimer: null,
+  firebase: null,
+  firebaseReady: false,
+  firebaseProductsLoaded: false,
+  firebaseMapSectionsLoaded: false,
+  firebaseUnsubscribes: [],
+  remoteProductsEmpty: false,
+  remoteUser: null,
   adminFailedAttempts: 0,
   adminLockoutUntil: 0,
-  adminUnlocked: localStorage.getItem(STORAGE_KEYS.admin) === "true"
+  adminUnlocked: false
 };
 
 const els = {};
@@ -196,6 +200,7 @@ function init() {
   renderProductOptions();
   renderCategoryChips();
   wireEvents();
+  connectFirebase();
   renderAll();
   setRole("customer");
 }
@@ -241,6 +246,7 @@ function cacheElements() {
   els.adminLock = document.querySelector("#adminLock");
   els.adminPanel = document.querySelector("#adminPanel");
   els.adminLogin = document.querySelector("#adminLogin");
+  els.adminEmail = document.querySelector("#adminEmail");
   els.adminCode = document.querySelector("#adminCode");
   els.adminLoginMessage = document.querySelector("#adminLoginMessage");
   els.adminAccessLink = document.querySelector("#adminAccessLink");
@@ -419,6 +425,70 @@ function renderAll() {
   renderGroceryList();
   renderBudget();
   renderMapSettings();
+  renderAdminGate();
+}
+
+function connectFirebase() {
+  if (state.firebaseReady) return;
+  const remote = window.HaulMartFirebase;
+  if (!remote) {
+    window.addEventListener("haulmart:firebase-ready", connectFirebase, { once: true });
+    window.setTimeout(() => {
+      if (!state.firebaseReady) setAdminStatus("Firebase unavailable. Local defaults loaded.");
+    }, 3500);
+    return;
+  }
+
+  state.firebase = remote;
+  state.firebaseReady = true;
+  setAdminStatus("Firebase connected");
+
+  state.firebaseUnsubscribes.push(remote.onAuthChanged((user) => {
+    state.remoteUser = user || null;
+    state.adminUnlocked = Boolean(user);
+    if (state.adminUnlocked) {
+      state.adminFailedAttempts = 0;
+      state.adminLockoutUntil = 0;
+      showAdminLoginMessage("", "");
+    }
+    renderAdminGate();
+  }));
+
+  state.firebaseUnsubscribes.push(remote.onProducts((products) => {
+    state.firebaseProductsLoaded = true;
+    state.remoteProductsEmpty = products.length === 0;
+    state.products = products.length
+      ? products.map(normalizeProduct)
+      : DEFAULT_PRODUCTS.map(normalizeProduct);
+    renderInventoryViews();
+    if (state.remoteProductsEmpty) setAdminStatus("Firebase ready. Reset will seed products.");
+  }, (error) => {
+    state.firebaseProductsLoaded = false;
+    setAdminStatus("Firebase product sync failed");
+    console.error(error);
+  }));
+
+  state.firebaseUnsubscribes.push(remote.onMapSections((sections) => {
+    state.firebaseMapSectionsLoaded = true;
+    state.mapSections = sections
+      .map((section, index) => normalizeMapSection(section, index))
+      .filter(Boolean);
+    renderMapZones();
+    renderNavigation();
+    renderMapSettings();
+  }, (error) => {
+    state.firebaseMapSectionsLoaded = false;
+    setAdminStatus("Firebase map sync failed");
+    console.error(error);
+  }));
+}
+
+function renderInventoryViews() {
+  renderProductOptions();
+  renderCategoryChips();
+  renderNavigation();
+  renderGroceryList();
+  renderBudget();
   renderAdminGate();
 }
 
@@ -1052,7 +1122,7 @@ function renderAdminGate() {
   }
 }
 
-function handleAdminLogin(event) {
+async function handleAdminLogin(event) {
   event.preventDefault();
   const remainingMs = state.adminLockoutUntil - Date.now();
   if (remainingMs > 0) {
@@ -1061,15 +1131,28 @@ function handleAdminLogin(event) {
     return;
   }
 
-  if (els.adminCode.value === getAdminPasscode()) {
+  if (!state.firebase?.signIn) {
+    showAdminLoginMessage("Firebase is still connecting. Try again in a moment.", "error");
+    return;
+  }
+
+  const email = els.adminEmail.value.trim();
+  const password = els.adminCode.value;
+  if (!email || !password) {
+    showAdminLoginMessage("Enter the admin email and password.", "error");
+    return;
+  }
+
+  try {
+    await state.firebase.signIn(email, password);
     state.adminUnlocked = true;
     state.adminFailedAttempts = 0;
     state.adminLockoutUntil = 0;
-    localStorage.setItem(STORAGE_KEYS.admin, "true");
+    els.adminEmail.value = "";
     els.adminCode.value = "";
     showAdminLoginMessage("", "");
     renderAdminGate();
-  } else {
+  } catch {
     state.adminFailedAttempts += 1;
     els.adminCode.value = "";
     const attemptsLeft = ADMIN_CONFIG.maxFailedAttempts - state.adminFailedAttempts;
@@ -1080,22 +1163,19 @@ function handleAdminLogin(event) {
       updateAdminLoginState();
       return;
     }
-    showAdminLoginMessage(`Incorrect passcode. ${attemptsLeft} ${attemptsLeft === 1 ? "attempt" : "attempts"} remaining.`, "error");
+    showAdminLoginMessage(`Incorrect email or password. ${attemptsLeft} ${attemptsLeft === 1 ? "attempt" : "attempts"} remaining.`, "error");
   }
 }
 
-function lockAdmin() {
+async function lockAdmin() {
   state.adminUnlocked = false;
-  localStorage.removeItem(STORAGE_KEYS.admin);
+  await state.firebase?.signOut?.();
   renderAdminGate();
-}
-
-function getAdminPasscode() {
-  return localStorage.getItem(STORAGE_KEYS.adminPasscode) || ADMIN_CONFIG.defaultPasscode;
 }
 
 function updateAdminLoginState() {
   const locked = state.adminLockoutUntil > Date.now();
+  if (els.adminEmail) els.adminEmail.disabled = locked;
   els.adminCode.disabled = locked;
   const submit = els.adminLogin.querySelector("button[type='submit']");
   if (submit) submit.disabled = locked;
@@ -1108,6 +1188,7 @@ function updateAdminLoginState() {
       return;
     }
     showAdminLoginMessage("You can try again now.", "success");
+    if (els.adminEmail) els.adminEmail.disabled = false;
     els.adminCode.disabled = false;
     if (submit) submit.disabled = false;
   }, Math.min(state.adminLockoutUntil - Date.now(), 1000));
@@ -1117,35 +1198,41 @@ function showAdminLoginMessage(message, type) {
   showAdminMessage(els.adminLoginMessage, message, type);
 }
 
-function handlePasscodeChange(event) {
+async function handlePasscodeChange(event) {
   event.preventDefault();
   const current = els.currentPasscode.value;
   const next = els.newPasscode.value.trim();
   const confirm = els.confirmPasscode.value.trim();
 
-  if (current !== getAdminPasscode()) {
-    showAdminMessage(els.passcodeMessage, "Current passcode is incorrect.", "error");
-    setPasscodeStatus("Check current passcode");
+  if (!state.firebase?.updatePassword || !state.remoteUser) {
+    showAdminMessage(els.passcodeMessage, "Sign in as admin before changing the password.", "error");
+    setPasscodeStatus("Sign in required");
     return;
   }
 
   if (next.length < ADMIN_CONFIG.minPasscodeLength) {
-    showAdminMessage(els.passcodeMessage, `New passcode must be at least ${ADMIN_CONFIG.minPasscodeLength} characters.`, "error");
+    showAdminMessage(els.passcodeMessage, `New password must be at least ${ADMIN_CONFIG.minPasscodeLength} characters.`, "error");
     setPasscodeStatus("Too short");
     return;
   }
 
   if (next !== confirm) {
-    showAdminMessage(els.passcodeMessage, "New passcodes do not match.", "error");
+    showAdminMessage(els.passcodeMessage, "New passwords do not match.", "error");
     setPasscodeStatus("Confirmation needed");
     return;
   }
 
-  localStorage.setItem(STORAGE_KEYS.adminPasscode, next);
-  els.passcodeForm.reset();
-  showAdminMessage(els.passcodeMessage, "Admin passcode updated.", "success");
-  setPasscodeStatus("Updated");
-  window.setTimeout(() => setPasscodeStatus("Protected"), 1600);
+  try {
+    setPasscodeStatus("Updating");
+    await state.firebase.updatePassword(current, next);
+    els.passcodeForm.reset();
+    showAdminMessage(els.passcodeMessage, "Admin password updated.", "success");
+    setPasscodeStatus("Updated");
+    window.setTimeout(() => setPasscodeStatus("Protected"), 1600);
+  } catch {
+    showAdminMessage(els.passcodeMessage, "Current password is incorrect or the session expired.", "error");
+    setPasscodeStatus("Check current password");
+  }
 }
 
 function setPasscodeStatus(statusText) {
@@ -1321,35 +1408,60 @@ function handleAdminListClick(event) {
   renderAdminList();
 }
 
-function saveInlineAdminProduct(event) {
+async function saveInlineAdminProduct(event) {
   const form = event.target.closest("[data-inline-edit]");
   if (!form) return;
   event.preventDefault();
   const product = findProductById(form.dataset.inlineEdit);
   if (!product) return;
 
-  product.name = form.elements.name.value.trim() || product.name;
-  product.price = Math.max(0, Number(form.elements.price.value) || 0);
-  setProductLocation(product, form.elements.location.value);
-  product.category = form.elements.category.value.trim() || product.category;
-  product.image = normalizeProductImagePath(form.elements.image.value);
-  product.inStock = form.elements.stock.value === "true";
-  product.variants = collectVariantRows(form, product);
-  product.id = product.id || slugify(product.name);
+  const draft = {
+    ...product,
+    name: form.elements.name.value.trim() || product.name,
+    price: Math.max(0, Number(form.elements.price.value) || 0),
+    category: form.elements.category.value.trim() || product.category,
+    image: normalizeProductImagePath(form.elements.image.value),
+    inStock: form.elements.stock.value === "true"
+  };
+  setProductLocation(draft, form.elements.location.value);
+  draft.variants = collectVariantRows(form, draft);
+  draft.id = draft.id || slugify(draft.name);
 
-  state.editingProductId = null;
-  persistProducts();
-  renderAfterInventoryChange("Saved");
+  try {
+    setAdminStatus("Saving");
+    const savedProduct = await prepareProductForRemote(draft);
+    if (state.firebaseReady) {
+      await persistProduct(savedProduct);
+      Object.assign(product, savedProduct);
+    } else {
+      Object.assign(product, savedProduct);
+      await persistProduct(product);
+    }
+    state.editingProductId = null;
+    renderAfterInventoryChange("Saved");
+  } catch (error) {
+    console.error(error);
+    setAdminStatus("Save failed");
+  }
 }
 
-function removeAdminProduct(productId) {
+async function removeAdminProduct(productId) {
   const product = findProductById(productId);
   if (!product) return;
   const confirmed = window.confirm("Are you sure you want to remove this product? This cannot be undone.");
   if (!confirmed) return;
 
+  try {
+    setAdminStatus("Removing");
+    await deleteRemoteProduct(product.id);
+  } catch (error) {
+    console.error(error);
+    setAdminStatus("Remove failed");
+    return;
+  }
+
   state.products = state.products.filter((item) => item.id !== product.id);
-  if (DEFAULT_PRODUCT_IDS.has(product.id) && !state.deletedProductIds.includes(product.id)) {
+  if (!state.firebaseReady && DEFAULT_PRODUCT_IDS.has(product.id) && !state.deletedProductIds.includes(product.id)) {
     state.deletedProductIds.push(product.id);
   }
   state.groceryList = state.groceryList.filter((item) => item.productId !== product.id);
@@ -1361,7 +1473,7 @@ function removeAdminProduct(productId) {
   state.editingProductId = null;
 
   persistProducts();
-  saveJSON(STORAGE_KEYS.deletedProducts, state.deletedProductIds);
+  if (!state.firebaseReady) saveJSON(STORAGE_KEYS.deletedProducts, state.deletedProductIds);
   saveJSON(STORAGE_KEYS.list, state.groceryList);
   saveJSON(STORAGE_KEYS.budget, state.budget);
   renderAfterInventoryChange("Removed");
@@ -1444,12 +1556,12 @@ function collectVariantRows(form, product) {
     .filter(Boolean);
 }
 
-function addAdminProduct(event) {
+async function addAdminProduct(event) {
   event.preventDefault();
   const name = els.newName.value.trim();
   if (!name) return;
   const id = uniqueProductId(slugify(name));
-  state.products.push({
+  const draft = {
     id,
     name,
     price: Math.max(0, Number(els.newPrice.value) || 0),
@@ -1457,7 +1569,23 @@ function addAdminProduct(event) {
     category: els.newCategory.value.trim() || "General",
     image: normalizeProductImagePath(els.newImage.value),
     inStock: true
-  });
+  };
+
+  try {
+    setAdminStatus("Saving");
+    const product = await prepareProductForRemote(draft);
+    if (state.firebaseReady) {
+      await persistProduct(product);
+      state.products.push(product);
+    } else {
+      state.products.push(product);
+      await persistProduct(product);
+    }
+  } catch (error) {
+    console.error(error);
+    setAdminStatus("Add failed");
+    return;
+  }
 
   els.newName.value = "";
   els.newPrice.value = "";
@@ -1467,11 +1595,10 @@ function addAdminProduct(event) {
   els.newImageUpload.value = "";
   updateImagePreview(els.newImagePreview, "");
   state.editingProductId = null;
-  persistProducts();
   renderAfterInventoryChange("Added");
 }
 
-function saveMapSection(event) {
+async function saveMapSection(event) {
   event.preventDefault();
   const name = els.mapSectionName.value.trim();
   const type = els.mapSectionType.value;
@@ -1490,8 +1617,15 @@ function saveMapSection(event) {
     categories
   });
 
-  state.mapSections.push(section);
-  persistMapSections();
+  try {
+    setAdminStatus("Saving map");
+    await persistMapSection(section);
+    if (state.firebaseReady) state.mapSections.push(section);
+  } catch (error) {
+    console.error(error);
+    showAdminMessage(els.mapSectionMessage, "Map section could not be saved.", "error");
+    return;
+  }
   els.mapSectionName.value = "";
   els.mapSectionLabel.value = "";
   els.mapSectionCategories.value = "";
@@ -1953,15 +2087,25 @@ function replaceBrokenPreviewImage(imageNode) {
   preview.textContent = "Image not available";
 }
 
-function resetInventory() {
+async function resetInventory() {
   const ok = window.confirm("Reset inventory, prices, locations, and availability to the defaults?");
   if (!ok) return;
   state.editingProductId = null;
   state.deletedProductIds = [];
-  localStorage.removeItem(STORAGE_KEYS.deletedProducts);
-  state.products = DEFAULT_PRODUCTS.map(normalizeProduct);
-  persistProducts();
-  renderAfterInventoryChange("Reset");
+  const defaults = DEFAULT_PRODUCTS.map(normalizeProduct);
+  try {
+    setAdminStatus("Resetting");
+    await replaceRemoteProducts(defaults);
+    state.products = defaults;
+    if (!state.firebaseReady) {
+      localStorage.removeItem(STORAGE_KEYS.deletedProducts);
+      persistProducts();
+    }
+    renderAfterInventoryChange("Reset");
+  } catch (error) {
+    console.error(error);
+    setAdminStatus("Reset failed");
+  }
 }
 
 function renderAfterInventoryChange(statusText) {
@@ -1971,10 +2115,14 @@ function renderAfterInventoryChange(statusText) {
   renderGroceryList();
   renderBudget();
   renderAdminList();
-  els.adminStatus.textContent = statusText;
+  setAdminStatus(statusText);
   window.setTimeout(() => {
-    els.adminStatus.textContent = "Ready";
+    setAdminStatus(state.firebaseReady ? "Firebase synced" : "Ready");
   }, 1600);
+}
+
+function setAdminStatus(statusText) {
+  if (els.adminStatus) els.adminStatus.textContent = statusText;
 }
 
 function renderLocationOptions(select = null, selectedKey = "aisle-1") {
@@ -2379,7 +2527,17 @@ function uniqueMapSectionKey(base) {
 }
 
 function persistMapSections() {
+  if (state.firebaseReady) return;
   saveJSON(STORAGE_KEYS.mapSections, state.mapSections);
+}
+
+async function persistMapSection(section) {
+  if (state.firebaseReady && state.firebase?.saveMapSection) {
+    await state.firebase.saveMapSection(serializeMapSection(section));
+    return;
+  }
+  state.mapSections.push(section);
+  persistMapSections();
 }
 
 function loadProducts() {
@@ -2526,7 +2684,93 @@ function hasKnownProductImagePath(imagePath) {
 }
 
 function persistProducts() {
+  if (state.firebaseReady) return;
   saveJSON(STORAGE_KEYS.products, state.products);
+}
+
+async function persistProduct(product) {
+  if (state.firebaseReady && state.firebase?.saveProduct) {
+    await state.firebase.saveProduct(serializeProduct(product));
+    return;
+  }
+  persistProducts();
+}
+
+async function deleteRemoteProduct(productId) {
+  if (state.firebaseReady && state.firebase?.deleteProduct) {
+    await state.firebase.deleteProduct(productId);
+  }
+}
+
+async function replaceRemoteProducts(products) {
+  if (state.firebaseReady && state.firebase?.replaceProducts) {
+    await state.firebase.replaceProducts(products.map(serializeProduct));
+  }
+}
+
+async function prepareProductForRemote(product) {
+  const prepared = normalizeProduct(structuredCloneSafe(product));
+  prepared.image = await uploadImageIfNeeded(prepared.image, `${slugify(prepared.name)}.png`, prepared.id);
+  prepared.variants = await Promise.all(getProductVariants(prepared).map(async (variant) => ({
+    ...variant,
+    image: await uploadImageIfNeeded(
+      variant.image,
+      `${slugify(prepared.name)}-${slugify(variant.name)}.png`,
+      prepared.id
+    )
+  })));
+  return normalizeProduct(prepared);
+}
+
+async function uploadImageIfNeeded(imageValue, fileName, productId) {
+  const image = normalizeProductImagePath(imageValue);
+  if (!DATA_IMAGE_PATTERN.test(image) || !state.firebaseReady || !state.firebase?.uploadProductImage) {
+    return image;
+  }
+  return state.firebase.uploadProductImage(image, fileName, productId);
+}
+
+function serializeProduct(product) {
+  const normalized = normalizeProduct(product);
+  return {
+    id: normalized.id,
+    name: normalized.name,
+    price: normalized.price,
+    category: normalized.category,
+    aisle: normalized.aisle,
+    locationKey: normalized.locationKey,
+    image: normalized.image || "",
+    inStock: normalized.inStock !== false,
+    variants: getProductVariants(normalized).map((variant) => ({
+      id: variant.id,
+      name: variant.name,
+      price: variant.price,
+      image: variant.image || "",
+      inStock: variant.inStock !== false
+    }))
+  };
+}
+
+function serializeMapSection(section) {
+  const normalized = normalizeMapSection(section);
+  return {
+    key: normalized.key,
+    name: normalized.name,
+    type: normalized.type,
+    label: normalized.label,
+    shortLabel: normalized.shortLabel,
+    categories: normalized.categories,
+    order: normalized.order,
+    left: normalized.left,
+    top: normalized.top,
+    width: normalized.width,
+    height: normalized.height
+  };
+}
+
+function structuredCloneSafe(value) {
+  if (typeof structuredClone === "function") return structuredClone(value);
+  return JSON.parse(JSON.stringify(value));
 }
 
 function readJSON(key, fallback) {
