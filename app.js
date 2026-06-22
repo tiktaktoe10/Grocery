@@ -2131,6 +2131,9 @@ function loadProducts() {
   savedProducts.forEach((product) => {
     if (!defaultIds.has(product.id)) merged.push(normalizeProduct(product));
   });
+  if (savedProducts.some(hasEmbeddedProductImage)) {
+    saveJSON(STORAGE_KEYS.products, merged);
+  }
   return merged;
 }
 
@@ -2151,7 +2154,7 @@ function normalizeProduct(product) {
     ...product,
     ...locationFields,
     price: Math.max(0, Number(product.price) || 0),
-    image: normalizeProductImagePath(product.image),
+    image: getProductImagePath(product),
     inStock: product.inStock !== false
   };
   return {
@@ -2174,11 +2177,32 @@ function normalizeVariants(variants, product) {
         id,
         name,
         price: Number.isFinite(price) ? price : product.price,
-        image: normalizeProductImagePath(variant.image),
+        image: getVariantImagePath(variant, product),
         inStock: variant.inStock !== false
       };
     })
     .filter(Boolean);
+}
+
+function hasEmbeddedProductImage(product) {
+  const values = [product?.image];
+  (product?.variants || []).forEach((variant) => values.push(variant?.image));
+  return values.some((value) => /^data:image\//i.test(String(value || "").trim()));
+}
+
+function getProductImagePath(product) {
+  const productImage = normalizeProductImagePath(product?.image);
+  if (productImage) return productImage;
+  const mappedImage = window.HAULMART_PRODUCT_IMAGES?.[product?.id];
+  return normalizeProductImagePath(mappedImage);
+}
+
+function getVariantImagePath(variant, product) {
+  const variantImage = normalizeProductImagePath(variant?.image);
+  if (variantImage) return variantImage;
+  const productImages = window.HAULMART_PRODUCT_VARIANT_IMAGES?.[product?.id] || {};
+  const mappedImage = productImages[variant?.id] || productImages[slugify(variant?.name)];
+  return normalizeProductImagePath(mappedImage);
 }
 
 function persistProducts() {
