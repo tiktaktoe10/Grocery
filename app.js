@@ -1131,7 +1131,7 @@ async function handleAdminLogin(event) {
     return;
   }
 
-  if (!state.firebase?.signIn) {
+  if (!state.firebase?.signInWithEmailAndPassword) {
     showAdminLoginMessage("Firebase is still connecting. Try again in a moment.", "error");
     return;
   }
@@ -1144,7 +1144,7 @@ async function handleAdminLogin(event) {
   }
 
   try {
-    await state.firebase.signIn(email, password);
+    await state.firebase.signInWithEmailAndPassword(email, password);
     state.adminUnlocked = true;
     state.adminFailedAttempts = 0;
     state.adminLockoutUntil = 0;
@@ -1152,18 +1152,20 @@ async function handleAdminLogin(event) {
     els.adminCode.value = "";
     showAdminLoginMessage("", "");
     renderAdminGate();
-  } catch {
+  } catch (error) {
+    console.error("Firebase authentication error:", error);
     state.adminFailedAttempts += 1;
     els.adminCode.value = "";
+    const firebaseMessage = getFirebaseErrorMessage(error);
     const attemptsLeft = ADMIN_CONFIG.maxFailedAttempts - state.adminFailedAttempts;
     if (attemptsLeft <= 0) {
       state.adminFailedAttempts = 0;
       state.adminLockoutUntil = Date.now() + ADMIN_CONFIG.lockoutMs;
-      showAdminLoginMessage(`Too many incorrect attempts. Try again in ${Math.ceil(ADMIN_CONFIG.lockoutMs / 1000)} seconds.`, "error");
+      showAdminLoginMessage(`${firebaseMessage} Access temporarily locked. Try again in ${Math.ceil(ADMIN_CONFIG.lockoutMs / 1000)} seconds.`, "error");
       updateAdminLoginState();
       return;
     }
-    showAdminLoginMessage(`Incorrect email or password. ${attemptsLeft} ${attemptsLeft === 1 ? "attempt" : "attempts"} remaining.`, "error");
+    showAdminLoginMessage(firebaseMessage, "error");
   }
 }
 
@@ -1196,6 +1198,10 @@ function updateAdminLoginState() {
 
 function showAdminLoginMessage(message, type) {
   showAdminMessage(els.adminLoginMessage, message, type);
+}
+
+function getFirebaseErrorMessage(error) {
+  return error?.message || error?.code || String(error || "Firebase authentication failed.");
 }
 
 async function handlePasscodeChange(event) {

@@ -45,8 +45,11 @@
     onAuthChanged(callback) {
       return auth.onAuthStateChanged(callback);
     },
-    signIn(email, password) {
+    signInWithEmailAndPassword(email, password) {
       return auth.signInWithEmailAndPassword(email, password);
+    },
+    signIn(email, password) {
+      return this.signInWithEmailAndPassword(email, password);
     },
     signOut() {
       return auth.signOut();
