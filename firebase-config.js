@@ -30,7 +30,6 @@
 
   const auth = firebase.auth();
   const db = firebase.firestore();
-  const storage = firebase.storage();
   const serverTimestamp = firebase.firestore.FieldValue.serverTimestamp;
 
   const COLLECTIONS = {
@@ -42,7 +41,6 @@
   const remote = {
     auth,
     db,
-    storage,
     onAuthChanged(callback) {
       return auth.onAuthStateChanged(callback);
     },
@@ -119,14 +117,6 @@
     },
     deleteMapSection(sectionKey) {
       return db.collection(COLLECTIONS.mapSections).doc(sectionKey).delete();
-    },
-    async uploadProductImage(imageValue, fileName, productId) {
-      const blob = await imageValueToBlob(imageValue);
-      const cleanProductId = cleanPathPart(productId || "product");
-      const cleanFileName = cleanPathPart(fileName || "product-image.png").replace(/\.(avif|gif|jpe?g|png|svg|webp)$/i, "") || "product-image";
-      const storageRef = storage.ref(`product-images/${cleanProductId}/${Date.now()}-${cleanFileName}.png`);
-      await storageRef.put(blob, { contentType: "image/png" });
-      return storageRef.getDownloadURL();
     }
   };
 
@@ -143,23 +133,4 @@
     );
   }
 
-  function cleanPathPart(value) {
-    return String(value || "")
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9._-]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 96) || "image";
-  }
-
-  async function imageValueToBlob(imageValue) {
-    const value = String(imageValue || "").trim();
-    if (value.startsWith("data:")) {
-      const response = await fetch(value);
-      return response.blob();
-    }
-    const response = await fetch(value, { mode: "cors" });
-    if (!response.ok) throw new Error("Image could not be loaded for upload.");
-    return response.blob();
-  }
 }());

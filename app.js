@@ -185,6 +185,7 @@ const state = {
   firebaseProductsLoaded: false,
   firebaseMapSectionsLoaded: false,
   firebaseUnsubscribes: [],
+  firebaseCatalogSeedInProgress: false,
   remoteProductsEmpty: false,
   remoteUser: null,
   adminFailedAttempts: 0,
@@ -257,6 +258,9 @@ function cacheElements() {
   els.adminBackButton = document.querySelector("#adminBackButton");
   els.adminBackFromLock = document.querySelector("#adminBackFromLock");
   els.adminLockButton = document.querySelector("#adminLockButton");
+  els.exportProducts = document.querySelector("#exportProducts");
+  els.importProducts = document.querySelector("#importProducts");
+  els.importProductsFile = document.querySelector("#importProductsFile");
   els.resetInventory = document.querySelector("#resetInventory");
   els.adminSearch = document.querySelector("#adminSearch");
   els.clearAdminSearch = document.querySelector("#clearAdminSearch");
@@ -356,6 +360,9 @@ function wireEvents() {
   els.adminBackFromLock?.addEventListener("click", showCustomerView);
   els.adminLogin.addEventListener("submit", handleAdminLogin);
   els.adminLockButton.addEventListener("click", lockAdmin);
+  els.exportProducts?.addEventListener("click", exportProductBackup);
+  els.importProducts?.addEventListener("click", () => els.importProductsFile?.click());
+  els.importProductsFile?.addEventListener("change", importProductBackup);
   els.resetInventory.addEventListener("click", resetInventory);
   els.adminSearch.addEventListener("input", renderAdminList);
   els.clearAdminSearch.addEventListener("click", () => {
@@ -455,12 +462,11 @@ function connectFirebase() {
 
   state.firebaseUnsubscribes.push(remote.onProducts((products) => {
     state.firebaseProductsLoaded = true;
-    state.remoteProductsEmpty = products.length === 0;
-    state.products = products.length
-      ? products.map(normalizeProduct)
-      : DEFAULT_PRODUCTS.map(normalizeProduct);
+    const remoteProducts = products.map(normalizeProduct);
+    state.remoteProductsEmpty = remoteProducts.length === 0;
+    state.products = mergeProductCatalog(DEFAULT_PRODUCTS, remoteProducts);
     renderInventoryViews();
-    if (state.remoteProductsEmpty) setAdminStatus("Firebase ready. Reset will seed products.");
+    restoreMissingRemoteCatalog(remoteProducts);
   }, (error) => {
     state.firebaseProductsLoaded = false;
     setAdminStatus("Firebase product sync failed");
@@ -2000,6 +2006,15 @@ function readFileAsDataURL(file) {
   });
 }
 
+function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsText(file);
+  });
+}
+
 function normalizeProductImagePath(value) {
   let image = decodeHTML(String(value || "")).trim().replaceAll("\\", "/");
   if (!image) return "";
@@ -2118,7 +2133,7 @@ async function resetInventory() {
   if (!ok) return;
   state.editingProductId = null;
   state.deletedProductIds = [];
-  const defaults = DEFAULT_PRODUCTS.map(normalizeProduct);
+  const defaults = getRestoredLocalProductCatalog();
   try {
     setAdminStatus("Resetting");
     await replaceRemoteProducts(defaults);
@@ -2131,6 +2146,56 @@ async function resetInventory() {
   } catch (error) {
     console.error(error);
     setAdminStatus("Reset failed");
+  }
+}
+
+function exportProductBackup() {
+  const payload = {
+    app: "Haul Mart",
+    type: "product-backup",
+    exportedAt: new Date().toISOString(),
+    productCount: state.products.length,
+    products: state.products.map(serializeProduct)
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const stamp = new Date().toISOString().slice(0, 10);
+  link.href = url;
+  link.download = `haul-mart-products-${stamp}.json`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  setAdminStatus("Exported");
+}
+
+async function importProductBackup() {
+  const file = els.importProductsFile?.files?.[0];
+  if (!file) return;
+
+  try {
+    const backup = JSON.parse(await readFileAsText(file));
+    const products = normalizeImportedProductBackup(backup);
+    if (!products.length) {
+      setAdminStatus("Import failed");
+      return;
+    }
+
+    setAdminStatus("Importing");
+    await replaceRemoteProducts(products);
+    state.products = products;
+    if (!state.firebaseReady) {
+      localStorage.removeItem(STORAGE_KEYS.deletedProducts);
+      persistProducts();
+    }
+    state.editingProductId = null;
+    renderAfterInventoryChange("Imported");
+  } catch (error) {
+    console.error(error);
+    setAdminStatus("Import failed");
+  } finally {
+    if (els.importProductsFile) els.importProductsFile.value = "";
   }
 }
 
@@ -2592,37 +2657,109 @@ async function persistMapSection(section) {
 function loadProducts() {
   const saved = readJSON(STORAGE_KEYS.products, null);
   const deletedIds = new Set(readJSON(STORAGE_KEYS.deletedProducts, []));
-  const defaults = DEFAULT_PRODUCTS
+  const defaults = getRestoredLocalProductCatalog()
     .map(normalizeProduct)
     .filter((product) => !deletedIds.has(product.id));
   if (!Array.isArray(saved)) return defaults;
 
   const savedProducts = migrateSavedWallLocations(saved).filter((product) => !deletedIds.has(product.id));
-  const savedMap = new Map(savedProducts.map((product) => [product.id, product]));
-  const defaultIds = new Set(defaults.map((product) => product.id));
   let shouldRepairSavedProducts = savedProducts.some(hasEmbeddedProductImage);
-  const merged = defaults.map((product) => {
-    const savedProduct = savedMap.get(product.id);
-    if (!savedProduct) return product;
+  const merged = mergeProductCatalog(defaults, savedProducts);
+  savedProducts.forEach((savedProduct) => {
     const normalizedSaved = normalizeProduct(savedProduct);
-    const hasSavedVariants = Object.prototype.hasOwnProperty.call(savedProduct, "variants");
-    const image = mergeProductImage(product, normalizedSaved);
+    const defaultProduct = defaults.find((product) => product.id === normalizedSaved.id);
+    const image = defaultProduct ? mergeProductImage(defaultProduct, normalizedSaved) : normalizedSaved.image;
     if (normalizedSaved.image !== normalizeProductImagePath(savedProduct.image)) shouldRepairSavedProducts = true;
     if (image !== normalizedSaved.image) shouldRepairSavedProducts = true;
-    return {
-      ...product,
-      ...normalizedSaved,
-      image,
-      variants: hasSavedVariants ? normalizedSaved.variants : product.variants
-    };
-  });
-  savedProducts.forEach((product) => {
-    if (!defaultIds.has(product.id)) merged.push(normalizeProduct(product));
   });
   if (shouldRepairSavedProducts) {
     saveJSON(STORAGE_KEYS.products, merged);
   }
   return merged;
+}
+
+function getRestoredLocalProductCatalog() {
+  return DEFAULT_PRODUCTS.map(normalizeProduct);
+}
+
+function mergeProductCatalog(baseProducts, overrideProducts) {
+  const base = baseProducts.map(normalizeProduct);
+  const overrides = Array.isArray(overrideProducts) ? overrideProducts : [];
+  const overrideMap = new Map(overrides.map((product) => [product.id, product]));
+  const baseIds = new Set(base.map((product) => product.id));
+  const merged = base.map((product) => {
+    const override = overrideMap.get(product.id);
+    if (!override) return product;
+    const normalizedOverride = normalizeProduct(override);
+    const hasOverrideVariants = Object.prototype.hasOwnProperty.call(override, "variants");
+    return {
+      ...product,
+      ...normalizedOverride,
+      image: mergeProductImage(product, normalizedOverride),
+      variants: hasOverrideVariants ? normalizedOverride.variants : product.variants
+    };
+  });
+
+  overrides.forEach((product) => {
+    if (!baseIds.has(product.id)) merged.push(normalizeProduct(product));
+  });
+  return merged;
+}
+
+async function restoreMissingRemoteCatalog(remoteProducts = []) {
+  if (!state.firebaseReady || !state.firebase?.saveProduct || state.firebaseCatalogSeedInProgress) return;
+
+  const restoredCatalog = getRestoredLocalProductCatalog();
+  const remoteIds = new Set(remoteProducts.map((product) => product.id));
+  const missingProducts = restoredCatalog.filter((product) => !remoteIds.has(product.id));
+  if (!missingProducts.length && remoteProducts.length) return;
+
+  state.firebaseCatalogSeedInProgress = true;
+  try {
+    if (!remoteProducts.length && state.firebase?.replaceProducts) {
+      setAdminStatus("Seeding restored catalog");
+      await replaceRemoteProducts(restoredCatalog);
+      setAdminStatus(`Restored ${restoredCatalog.length} products`);
+      return;
+    }
+
+    setAdminStatus(`Restoring ${missingProducts.length} products`);
+    for (const product of missingProducts) {
+      await state.firebase.saveProduct(serializeProduct(product));
+    }
+    setAdminStatus(`Restored ${missingProducts.length} products`);
+  } catch (error) {
+    console.error("Firebase catalog restore failed:", error);
+    setAdminStatus("Catalog restore failed");
+  } finally {
+    state.firebaseCatalogSeedInProgress = false;
+  }
+}
+
+function normalizeImportedProductBackup(backup) {
+  const rawProducts = Array.isArray(backup) ? backup : backup?.products;
+  if (!Array.isArray(rawProducts)) return [];
+  const usedIds = new Set();
+  return rawProducts
+    .map((product) => {
+      const baseId = slugify(product?.id || product?.name || "product");
+      return normalizeProduct({
+        ...product,
+        id: uniqueImportedProductId(baseId, usedIds)
+      });
+    })
+    .filter((product) => product.name);
+}
+
+function uniqueImportedProductId(base, usedIds) {
+  let id = base || "product";
+  let counter = 2;
+  while (usedIds.has(id)) {
+    id = `${base}-${counter}`;
+    counter += 1;
+  }
+  usedIds.add(id);
+  return id;
 }
 
 function migrateSavedWallLocations(products) {
@@ -2758,25 +2895,7 @@ async function replaceRemoteProducts(products) {
 }
 
 async function prepareProductForRemote(product) {
-  const prepared = normalizeProduct(structuredCloneSafe(product));
-  prepared.image = await uploadImageIfNeeded(prepared.image, `${slugify(prepared.name)}.png`, prepared.id);
-  prepared.variants = await Promise.all(getProductVariants(prepared).map(async (variant) => ({
-    ...variant,
-    image: await uploadImageIfNeeded(
-      variant.image,
-      `${slugify(prepared.name)}-${slugify(variant.name)}.png`,
-      prepared.id
-    )
-  })));
-  return normalizeProduct(prepared);
-}
-
-async function uploadImageIfNeeded(imageValue, fileName, productId) {
-  const image = normalizeProductImagePath(imageValue);
-  if (!DATA_IMAGE_PATTERN.test(image) || !state.firebaseReady || !state.firebase?.uploadProductImage) {
-    return image;
-  }
-  return state.firebase.uploadProductImage(image, fileName, productId);
+  return normalizeProduct(structuredCloneSafe(product));
 }
 
 function serializeProduct(product) {
