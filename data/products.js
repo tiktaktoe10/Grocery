@@ -248,7 +248,7 @@ window.HAULMART_PRODUCTS = [
     "category": "Instant Noodles & Canned Goods",
     "aisle": 2,
     "inStock": true,
-    "image": "assets/products/century-tuna-hot-spicy.png"
+    "image": "assets/products/century-tuna-hot-and-spicy.png"
   },
   {
     "id": "mega-sardines",
@@ -320,7 +320,7 @@ window.HAULMART_PRODUCTS = [
     "category": "Instant Noodles & Canned Goods",
     "aisle": 2,
     "inStock": true,
-    "image": "assets/products/pork-beans.png"
+    "image": "assets/products/pork-and-beans.png"
   },
   {
     "id": "green-peas",

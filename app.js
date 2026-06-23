@@ -2162,12 +2162,12 @@ function exportProductBackup() {
   const link = document.createElement("a");
   const stamp = new Date().toISOString().slice(0, 10);
   link.href = url;
-  link.download = `haul-mart-products-${stamp}.json`;
+  link.download = `haul-mart-product-backup-${stamp}.json`;
   document.body.append(link);
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
-  setAdminStatus("Exported");
+  setAdminStatus("Backup exported");
 }
 
 async function importProductBackup() {
@@ -2190,7 +2190,7 @@ async function importProductBackup() {
       persistProducts();
     }
     state.editingProductId = null;
-    renderAfterInventoryChange("Imported");
+    renderAfterInventoryChange("Backup imported");
   } catch (error) {
     console.error(error);
     setAdminStatus("Import failed");
