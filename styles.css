@@ -2020,53 +2020,80 @@ h2 {
   }
 
   .product-card {
-    grid-template-rows: 118px 1fr;
+    grid-template-columns: minmax(104px, 32%) minmax(0, 1fr);
+    grid-template-rows: 1fr;
     min-height: 0;
+    align-items: stretch;
   }
 
   .product-shot {
-    height: 118px;
-    padding: 10px;
+    height: auto;
+    min-height: 172px;
+    padding: 9px;
+    border-right: 1px solid var(--image-border);
+    border-bottom: 0;
   }
 
   .product-shot::after {
-    inset: 8px;
+    inset: 7px;
     border-radius: 5px;
   }
 
   .product-image {
-    width: min(100%, 138px);
-    height: 92px;
-    padding: 5px;
+    width: min(100%, 104px);
+    height: 148px;
+    padding: 6px;
+    object-fit: contain;
+    object-position: center;
   }
 
   .missing-image {
-    width: min(78%, 150px);
-    min-height: 50px;
-    padding: 8px 10px;
-    font-size: 0.76rem;
+    width: min(100%, 92px);
+    min-height: 96px;
+    padding: 8px;
+    font-size: 0.68rem;
     border-radius: 7px;
   }
 
   .product-body {
-    gap: 8px;
-    padding: 10px;
+    min-width: 0;
+    gap: 6px;
+    padding: 9px;
+  }
+
+  .product-body > div:first-child {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px 7px;
   }
 
   .product-name {
-    font-size: 0.95rem;
-    line-height: 1.18;
+    flex: 1 1 100%;
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.15;
   }
 
   .variant-selected-label {
-    margin: 2px 0 5px;
+    flex: 1 1 100%;
+    margin: -1px 0 0;
     font-size: 0.75rem;
   }
 
   .stock-pill {
-    min-height: 24px;
+    min-height: 22px;
     padding-inline: 8px;
-    font-size: 0.72rem;
+    font-size: 0.68rem;
+  }
+
+  .stock-pill.out {
+    font-size: 0;
+  }
+
+  .stock-pill.out::after {
+    content: "Not available";
+    font-size: 0.68rem;
   }
 
   .variant-picker {
@@ -2095,11 +2122,16 @@ h2 {
   }
 
   .meta-grid {
-    gap: 6px;
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+
+  .meta-grid .meta-item:nth-child(4) {
+    display: none;
   }
 
   .meta-item {
-    padding: 6px;
+    padding: 6px 7px;
     border-radius: 6px;
   }
 
@@ -2109,17 +2141,17 @@ h2 {
 
   .meta-value {
     margin-top: 1px;
-    font-size: 0.84rem;
+    font-size: 0.82rem;
   }
 
   .card-actions {
-    gap: 6px;
+    gap: 5px;
   }
 
   .card-actions button {
-    min-height: 34px;
-    padding-inline: 5px;
-    font-size: 0.72rem;
+    min-height: 32px;
+    padding-inline: 4px;
+    font-size: 0.68rem;
   }
 
   .checklist,
