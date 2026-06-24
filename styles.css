@@ -2013,14 +2013,14 @@ h2 {
 
   .results-grid {
     max-height: none;
-    gap: 6px;
+    gap: 4px;
     overflow: visible;
     padding-right: 0;
     scrollbar-gutter: auto;
   }
 
   .product-card {
-    grid-template-columns: minmax(104px, 32%) minmax(0, 1fr);
+    grid-template-columns: minmax(126px, 35%) minmax(0, 1fr);
     grid-template-rows: 1fr;
     min-height: 0;
     align-items: stretch;
@@ -2028,7 +2028,7 @@ h2 {
 
   .product-shot {
     height: auto;
-    min-height: 172px;
+    min-height: 198px;
     padding: 9px;
     border-right: 1px solid var(--image-border);
     border-bottom: 0;
@@ -2040,8 +2040,8 @@ h2 {
   }
 
   .product-image {
-    width: min(100%, 104px);
-    height: 148px;
+    width: min(100%, 118px);
+    height: 180px;
     padding: 6px;
     object-fit: contain;
     object-position: center;
@@ -2065,7 +2065,7 @@ h2 {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 5px 7px;
+    gap: 10px 7px;
   }
 
   .product-name {
@@ -2122,8 +2122,12 @@ h2 {
   }
 
   .meta-grid {
-    grid-template-columns: 1fr;
-    gap: 5px;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+  }
+
+  .meta-grid .meta-item:nth-child(3) {
+    grid-column: 1 / -1;
   }
 
   .meta-grid .meta-item:nth-child(4) {
@@ -2131,17 +2135,17 @@ h2 {
   }
 
   .meta-item {
-    padding: 6px 7px;
+    padding: 5px 6px;
     border-radius: 6px;
   }
 
   .meta-label {
-    font-size: 0.66rem;
+    font-size: 0.6rem;
   }
 
   .meta-value {
     margin-top: 1px;
-    font-size: 0.82rem;
+    font-size: 0.76rem;
   }
 
   .card-actions {
@@ -2152,6 +2156,12 @@ h2 {
     min-height: 32px;
     padding-inline: 4px;
     font-size: 0.68rem;
+  }
+
+  .card-actions button:first-child {
+    color: #ffffff;
+    background: #D32F2F;
+    border-color: #D32F2F;
   }
 
   .checklist,
