@@ -118,6 +118,35 @@
     deleteMapSection(sectionKey) {
       return db.collection(COLLECTIONS.mapSections).doc(sectionKey).delete();
     },
+    async replaceMapSections(sections) {
+      const snapshot = await db.collection(COLLECTIONS.mapSections).get();
+      let batch = db.batch();
+      let count = 0;
+      const commit = async () => {
+        if (!count) return;
+        await batch.commit();
+        batch = db.batch();
+        count = 0;
+      };
+
+      for (const entry of snapshot.docs) {
+        batch.delete(entry.ref);
+        count += 1;
+        if (count >= 450) await commit();
+      }
+      await commit();
+
+      for (const section of sections) {
+        const id = section.id || section.key;
+        batch.set(db.collection(COLLECTIONS.mapSections).doc(id), {
+          ...stripUndefined(section),
+          updatedAt: serverTimestamp()
+        });
+        count += 1;
+        if (count >= 450) await commit();
+      }
+      await commit();
+    },
     onPromotions(callback, onError) {
       return db.collection(COLLECTIONS.promotions).onSnapshot((snapshot) => {
         callback(snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() })));

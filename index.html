@@ -260,35 +260,95 @@
 
               <section class="tool-panel">
                 <div class="panel-heading">
-                  <h2>Map Settings</h2>
+                  <h2>Map Editor</h2>
                   <span id="mapSectionStatus" class="count-chip muted">Ready</span>
                 </div>
-                <form id="mapSectionForm" class="admin-form map-settings-form">
-                  <label for="mapSectionName">Section name</label>
-                  <input id="mapSectionName" type="text" placeholder="Example: Aisle 11">
+                <div class="map-editor-toolbar">
+                  <button id="mapEditorAddSection" class="primary-button" type="button">Add Section</button>
+                  <button id="mapEditorDuplicateSection" class="ghost-button" type="button">Duplicate</button>
+                  <button id="mapEditorDeleteSection" class="danger-button" type="button">Delete</button>
+                  <label class="checkbox-row map-editor-snap">
+                    <input id="mapEditorSnap" type="checkbox" checked>
+                    <span>Snap to grid</span>
+                  </label>
+                </div>
+                <div class="map-editor-toolbar secondary">
+                  <button id="exportMapJson" class="ghost-button" type="button">Export Map JSON</button>
+                  <button id="importMapJson" class="ghost-button" type="button">Import Map JSON</button>
+                  <input id="importMapJsonFile" class="sr-only" type="file" accept="application/json,.json">
+                  <button id="resetMapLayout" class="ghost-button" type="button">Reset to Default Map</button>
+                </div>
+                <p id="mapSectionMessage" class="admin-message is-hidden" aria-live="polite"></p>
 
-                  <div class="inline-fields">
-                    <div class="form-pair">
-                      <label for="mapSectionType">Section type</label>
-                      <select id="mapSectionType">
-                        <option value="aisle">Aisle</option>
-                        <option value="wall">Wall</option>
-                        <option value="frozen">Frozen</option>
-                        <option value="meat">Meat</option>
-                      </select>
-                    </div>
-                    <div class="form-pair">
-                      <label for="mapSectionLabel">Section label</label>
-                      <input id="mapSectionLabel" type="text" placeholder="Example: A11">
-                    </div>
+                <div class="map-editor-workspace">
+                  <div class="map-editor-canvas-wrap" aria-label="Editable store map">
+                    <div id="mapEditorCanvas" class="map-editor-canvas"></div>
                   </div>
 
-                  <label for="mapSectionCategories">Product categories</label>
-                  <textarea id="mapSectionCategories" rows="3" placeholder="Rice&#10;Snacks&#10;Drinks"></textarea>
-                  <p id="mapSectionMessage" class="admin-message is-hidden" aria-live="polite"></p>
-                  <button class="primary-button full-width" type="submit">Save Section</button>
-                </form>
-                <div id="mapSectionList" class="map-section-list" aria-live="polite"></div>
+                  <form id="mapEditorInspector" class="admin-form map-editor-inspector">
+                    <div class="panel-heading compact">
+                      <h3>Selected Section</h3>
+                      <span id="mapEditorSectionCount" class="count-chip muted">0 sections</span>
+                    </div>
+
+                    <label for="mapEditorName">Name</label>
+                    <input id="mapEditorName" name="name" type="text" placeholder="Aisle 1">
+
+                    <div class="inline-fields">
+                      <div class="form-pair">
+                        <label for="mapEditorType">Type</label>
+                        <select id="mapEditorType" name="type">
+                          <option value="aisle">Aisle</option>
+                          <option value="freezer">Freezer</option>
+                          <option value="meat">Meat</option>
+                          <option value="produce">Produce</option>
+                          <option value="dairy">Dairy</option>
+                          <option value="checkout">Checkout</option>
+                          <option value="entrance">Entrance</option>
+                          <option value="wall">Wall</option>
+                          <option value="restroom">Restroom</option>
+                          <option value="custom">Custom</option>
+                        </select>
+                      </div>
+                      <div class="form-pair">
+                        <label for="mapEditorLabel">Label</label>
+                        <input id="mapEditorLabel" name="label" type="text" placeholder="A1">
+                      </div>
+                    </div>
+
+                    <label for="mapEditorColor">Color</label>
+                    <input id="mapEditorColor" name="color" type="color" value="#ffffff">
+
+                    <div class="map-editor-number-grid">
+                      <div class="form-pair">
+                        <label for="mapEditorX">X</label>
+                        <input id="mapEditorX" name="x" type="number" min="0" max="100" step="0.1">
+                      </div>
+                      <div class="form-pair">
+                        <label for="mapEditorY">Y</label>
+                        <input id="mapEditorY" name="y" type="number" min="0" max="100" step="0.1">
+                      </div>
+                      <div class="form-pair">
+                        <label for="mapEditorWidth">Width</label>
+                        <input id="mapEditorWidth" name="width" type="number" min="1" max="100" step="0.1">
+                      </div>
+                      <div class="form-pair">
+                        <label for="mapEditorHeight">Height</label>
+                        <input id="mapEditorHeight" name="height" type="number" min="1" max="100" step="0.1">
+                      </div>
+                    </div>
+
+                    <label for="mapEditorRotation">Rotation</label>
+                    <input id="mapEditorRotation" name="rotation" type="range" min="-180" max="180" step="1" value="0">
+                    <p id="mapEditorDimensions" class="item-meta">Select a section to edit it.</p>
+
+                    <label for="mapEditorCategories">Assigned categories</label>
+                    <textarea id="mapEditorCategories" name="categories" rows="3" placeholder="Rice&#10;Snacks&#10;Drinks"></textarea>
+
+                    <label for="mapEditorProducts">Assigned products</label>
+                    <select id="mapEditorProducts" name="products" multiple size="6" aria-label="Assign products to selected map section"></select>
+                  </form>
+                </div>
               </section>
             </div>
           </div>

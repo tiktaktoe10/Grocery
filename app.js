@@ -28,6 +28,21 @@ const ADMIN_IMAGE_MAX_WIDTH = 500;
 const ADMIN_IMAGE_QUALITY = 0.6;
 const ADMIN_IMAGE_MAX_SOURCE_BYTES = 8 * 1024 * 1024;
 const ADMIN_IMAGE_MAX_FIRESTORE_BYTES = 700 * 1024;
+const MAP_EDITOR_GRID_SIZE = 1;
+const MAP_EDITOR_SAVE_DELAY = 650;
+const MAP_SECTION_TYPES = ["aisle", "freezer", "meat", "produce", "dairy", "checkout", "entrance", "wall", "restroom", "custom"];
+const MAP_SECTION_COLORS = {
+  aisle: "",
+  freezer: "",
+  meat: "",
+  produce: "#dff4e8",
+  dairy: "#eef7ff",
+  checkout: "#f6f8fa",
+  entrance: "#fff7d6",
+  wall: "",
+  restroom: "#f4f7fa",
+  custom: "#ffffff"
+};
 let knownProductImagePaths = null;
 
 const LOCATION_ZONES = [
@@ -165,6 +180,7 @@ const DEFAULT_PRODUCTS = Array.isArray(window.HAULMART_PRODUCTS)
   ? [...window.HAULMART_PRODUCTS, ...EXTRA_PRODUCTS]
   : [];
 const DEFAULT_PRODUCT_IDS = new Set(DEFAULT_PRODUCTS.map((product) => product.id));
+let stateReady = false;
 
 const state = {
   clientId: getClientId(),
@@ -182,6 +198,10 @@ const state = {
   activeProductId: null,
   editingProductId: null,
   editingPromotionId: null,
+  mapEditorSelectedId: null,
+  mapEditorDrag: null,
+  mapEditorSnapToGrid: true,
+  mapEditorSaveTimer: null,
   selectedVariants: {},
   mapOpen: true,
   mapProductId: null,
@@ -206,6 +226,7 @@ const state = {
   adminLockoutUntil: 0,
   adminUnlocked: false
 };
+stateReady = true;
 
 const els = {};
 
@@ -299,6 +320,28 @@ function cacheElements() {
   els.mapSectionMessage = document.querySelector("#mapSectionMessage");
   els.mapSectionStatus = document.querySelector("#mapSectionStatus");
   els.mapSectionList = document.querySelector("#mapSectionList");
+  els.mapEditorAddSection = document.querySelector("#mapEditorAddSection");
+  els.mapEditorDuplicateSection = document.querySelector("#mapEditorDuplicateSection");
+  els.mapEditorDeleteSection = document.querySelector("#mapEditorDeleteSection");
+  els.mapEditorSnap = document.querySelector("#mapEditorSnap");
+  els.exportMapJson = document.querySelector("#exportMapJson");
+  els.importMapJson = document.querySelector("#importMapJson");
+  els.importMapJsonFile = document.querySelector("#importMapJsonFile");
+  els.resetMapLayout = document.querySelector("#resetMapLayout");
+  els.mapEditorCanvas = document.querySelector("#mapEditorCanvas");
+  els.mapEditorInspector = document.querySelector("#mapEditorInspector");
+  els.mapEditorName = document.querySelector("#mapEditorName");
+  els.mapEditorType = document.querySelector("#mapEditorType");
+  els.mapEditorLabel = document.querySelector("#mapEditorLabel");
+  els.mapEditorColor = document.querySelector("#mapEditorColor");
+  els.mapEditorX = document.querySelector("#mapEditorX");
+  els.mapEditorY = document.querySelector("#mapEditorY");
+  els.mapEditorWidth = document.querySelector("#mapEditorWidth");
+  els.mapEditorHeight = document.querySelector("#mapEditorHeight");
+  els.mapEditorRotation = document.querySelector("#mapEditorRotation");
+  els.mapEditorDimensions = document.querySelector("#mapEditorDimensions");
+  els.mapEditorCategories = document.querySelector("#mapEditorCategories");
+  els.mapEditorProducts = document.querySelector("#mapEditorProducts");
   els.promotionForm = document.querySelector("#promotionForm");
   els.promoTitle = document.querySelector("#promoTitle");
   els.promoDescription = document.querySelector("#promoDescription");
@@ -429,6 +472,19 @@ function wireEvents() {
   els.newImageUpload.addEventListener("change", () => handleImageUpload(els.newImageUpload, els.newImage, els.newImagePreview));
   els.adminAddForm.addEventListener("submit", addAdminProduct);
   els.mapSectionForm?.addEventListener("submit", saveMapSection);
+  els.mapEditorAddSection?.addEventListener("click", addMapEditorSection);
+  els.mapEditorDuplicateSection?.addEventListener("click", duplicateSelectedMapSection);
+  els.mapEditorDeleteSection?.addEventListener("click", deleteSelectedMapSection);
+  els.mapEditorSnap?.addEventListener("change", () => {
+    state.mapEditorSnapToGrid = els.mapEditorSnap.checked;
+  });
+  els.exportMapJson?.addEventListener("click", exportMapBackup);
+  els.importMapJson?.addEventListener("click", () => els.importMapJsonFile?.click());
+  els.importMapJsonFile?.addEventListener("change", importMapBackup);
+  els.resetMapLayout?.addEventListener("click", resetMapLayout);
+  els.mapEditorCanvas?.addEventListener("pointerdown", handleMapEditorPointerDown);
+  els.mapEditorInspector?.addEventListener("input", handleMapEditorInspectorInput);
+  els.mapEditorInspector?.addEventListener("change", handleMapEditorInspectorInput);
   els.promotionForm?.addEventListener("submit", savePromotion);
   els.promoImage?.addEventListener("input", () => updateImagePreview(els.promoImagePreview, els.promoImage.value));
   els.promoImage?.addEventListener("paste", (event) => handleImagePaste(event, els.promoImage, els.promoImagePreview, els.promoImageUpload));
@@ -536,9 +592,10 @@ function connectFirebase() {
 
   state.firebaseUnsubscribes.push(remote.onMapSections((sections) => {
     state.firebaseMapSectionsLoaded = true;
-    state.mapSections = sections
-      .map((section, index) => normalizeMapSection(section, index))
-      .filter(Boolean);
+    state.mapSections = normalizeLoadedMapSections(sections);
+    if (!state.mapEditorSelectedId || !getLocationZone(state.mapEditorSelectedId)) {
+      state.mapEditorSelectedId = state.mapSections[0]?.key || null;
+    }
     renderMapZones();
     renderNavigation();
     renderMapSettings();
@@ -579,6 +636,7 @@ function renderInventoryViews() {
   renderGroceryList();
   renderBudget();
   renderPromotionSettings();
+  renderMapSettings();
   renderAdminGate();
 }
 
@@ -1085,12 +1143,7 @@ function isMobileView() {
 }
 
 function renderMapZones() {
-  els.mapLandmarks.innerHTML = MAP_LANDMARKS.map((landmark) => `
-    <div
-      class="map-landmark ${escapeHTML(landmark.type)}"
-      style="left:${landmark.left}%;top:${landmark.top}%;width:${landmark.width}%;height:${landmark.height}%"
-    >${escapeHTML(landmark.label)}</div>
-  `).join("");
+  if (els.mapLandmarks) els.mapLandmarks.innerHTML = "";
 
   els.mapZones.innerHTML = getLocationZones().map((zone) => `
     <button
@@ -1098,11 +1151,28 @@ function renderMapZones() {
       type="button"
       data-location="${escapeHTML(zone.key)}"
       data-zone-type="${escapeHTML(getZoneType(zone.key))}"
+      data-has-color="${zone.color ? "true" : "false"}"
       aria-label="${escapeHTML(zone.label)}"
       title="${escapeHTML(zone.label)}"
-      style="left:${zone.left}%;top:${zone.top}%;width:${zone.width}%;height:${zone.height}%"
+      style="${getMapSectionInlineStyle(zone)}"
     ><span class="map-zone-label">${renderLocationShortLabel(zone.key, zone.label)}</span></button>
   `).join("");
+}
+
+function getMapSectionInlineStyle(zone) {
+  const styles = [
+    `left:${formatMapNumber(zone.left)}%`,
+    `top:${formatMapNumber(zone.top)}%`,
+    `width:${formatMapNumber(zone.width)}%`,
+    `height:${formatMapNumber(zone.height)}%`,
+    `transform:rotate(${formatMapNumber(zone.rotation || 0)}deg)`
+  ];
+  if (zone.color) {
+    styles.push(`background:${zone.color}`);
+    styles.push(`border-color:${zone.color}`);
+    styles.push(`color:${getContrastTextColor(zone.color)}`);
+  }
+  return styles.join(";");
 }
 
 function updateMap(locationKey, product) {
@@ -2077,26 +2147,301 @@ async function saveMapSection(event) {
 }
 
 function renderMapSettings() {
-  if (!els.mapSectionList) return;
-  const sections = state.mapSections.slice().sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
-  els.mapSectionStatus.textContent = `${sections.length} saved`;
-  els.mapSectionList.innerHTML = sections.length
-    ? sections.map(renderMapSectionCard).join("")
-    : `<div class="empty-state compact">No custom map sections saved yet.</div>`;
+  if (!els.mapEditorCanvas) return;
+  if (!state.mapEditorSelectedId || !getLocationZone(state.mapEditorSelectedId)) {
+    state.mapEditorSelectedId = state.mapSections[0]?.key || null;
+  }
+  renderMapEditorCanvas();
+  renderMapEditorInspector();
+  if (els.mapSectionStatus) els.mapSectionStatus.textContent = `${state.mapSections.length} sections`;
 }
 
-function renderMapSectionCard(section) {
-  const categories = section.categories?.length ? section.categories.join(", ") : "No categories set";
+function renderMapEditorCanvas() {
+  if (!els.mapEditorCanvas) return;
+  els.mapEditorCanvas.innerHTML = getLocationZones().map(renderMapEditorSection).join("");
+}
+
+function renderMapEditorSection(section) {
+  const selected = state.mapEditorSelectedId === section.key;
   return `
-    <article class="map-section-card">
-      <div>
-        <strong>${escapeHTML(section.name)}</strong>
-        <span class="item-meta">${escapeHTML(section.label)} | ${escapeHTML(titleCase(section.type))}</span>
-      </div>
-      <span class="section-type-chip" data-section-type="${escapeHTML(section.type)}">${escapeHTML(section.label)}</span>
-      <p>${escapeHTML(categories)}</p>
-    </article>
+    <button
+      class="map-zone map-editor-section ${selected ? "is-selected" : ""}"
+      type="button"
+      data-editor-section="${escapeHTML(section.key)}"
+      data-zone-type="${escapeHTML(getZoneType(section.key))}"
+      data-has-color="${section.color ? "true" : "false"}"
+      style="${getMapSectionInlineStyle(section)}"
+      aria-label="Edit ${escapeHTML(section.name)}"
+    >
+      <span class="map-zone-label">${renderLocationShortLabel(section.key, section.label)}</span>
+      <span class="map-editor-resize" data-editor-resize aria-hidden="true"></span>
+    </button>
   `;
+}
+
+function renderMapEditorInspector() {
+  const section = getSelectedMapEditorSection();
+  if (els.mapEditorSectionCount) els.mapEditorSectionCount.textContent = `${state.mapSections.length} sections`;
+  renderMapEditorProductOptions(section);
+  const disabled = !section;
+  [
+    els.mapEditorName,
+    els.mapEditorType,
+    els.mapEditorLabel,
+    els.mapEditorColor,
+    els.mapEditorX,
+    els.mapEditorY,
+    els.mapEditorWidth,
+    els.mapEditorHeight,
+    els.mapEditorRotation,
+    els.mapEditorCategories,
+    els.mapEditorProducts
+  ].filter(Boolean).forEach((field) => {
+    field.disabled = disabled;
+  });
+
+  if (!section) {
+    if (els.mapEditorName) els.mapEditorName.value = "";
+    if (els.mapEditorLabel) els.mapEditorLabel.value = "";
+    if (els.mapEditorType) els.mapEditorType.value = "aisle";
+    if (els.mapEditorColor) els.mapEditorColor.value = "#ffffff";
+    if (els.mapEditorCategories) els.mapEditorCategories.value = "";
+    if (els.mapEditorDimensions) els.mapEditorDimensions.textContent = "Select a section to edit it.";
+    return;
+  }
+
+  els.mapEditorName.value = section.name;
+  els.mapEditorType.value = section.type;
+  els.mapEditorLabel.value = section.label;
+  els.mapEditorColor.value = normalizeHexColor(section.color) || "#ffffff";
+  els.mapEditorX.value = formatMapNumber(section.left);
+  els.mapEditorY.value = formatMapNumber(section.top);
+  els.mapEditorWidth.value = formatMapNumber(section.width);
+  els.mapEditorHeight.value = formatMapNumber(section.height);
+  els.mapEditorRotation.value = Math.round(section.rotation || 0);
+  els.mapEditorCategories.value = (section.categories || []).join("\n");
+  updateMapEditorDimensionText(section);
+}
+
+function renderMapEditorProductOptions(section) {
+  if (!els.mapEditorProducts) return;
+  const assigned = new Set(section?.assignedProducts || []);
+  els.mapEditorProducts.innerHTML = state.products
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((product) => `<option value="${escapeHTML(product.id)}" ${assigned.has(product.id) ? "selected" : ""}>${escapeHTML(product.name)}</option>`)
+    .join("");
+}
+
+function getSelectedMapEditorSection() {
+  return getLocationZone(state.mapEditorSelectedId);
+}
+
+async function addMapEditorSection() {
+  const index = state.mapSections.length;
+  const key = uniqueMapSectionKey(`aisle-${index + 1}`);
+  const section = normalizeMapSection({
+    id: key,
+    key,
+    name: `New Section ${index + 1}`,
+    type: "aisle",
+    label: `S${index + 1}`,
+    shortLabel: `S${index + 1}`,
+    left: 44,
+    top: 44,
+    width: 8,
+    height: 9,
+    rotation: 0,
+    color: "",
+    categories: [],
+    assignedProducts: [],
+    order: getNextMapSectionOrder()
+  }, index);
+  upsertMapSection(section);
+  state.mapEditorSelectedId = section.key;
+  try {
+    await replaceRemoteMapSections(state.mapSections);
+    renderAfterMapSettingsChange("Section added");
+  } catch (error) {
+    console.error(error);
+    setAdminStatus("Map save failed");
+  }
+}
+
+async function duplicateSelectedMapSection() {
+  const selected = getSelectedMapEditorSection();
+  if (!selected) return;
+  const key = uniqueMapSectionKey(`${selected.type}-${slugify(selected.name)}-copy`);
+  const duplicate = normalizeMapSection({
+    ...structuredCloneSafe(selected),
+    id: key,
+    key,
+    name: `${selected.name} Copy`,
+    label: `${selected.label} Copy`.slice(0, 24),
+    shortLabel: `${selected.shortLabel || selected.label} Copy`.slice(0, 24),
+    left: clamp(selected.left + 2, 0, 99),
+    top: clamp(selected.top + 2, 0, 99),
+    order: getNextMapSectionOrder()
+  }, state.mapSections.length);
+  upsertMapSection(duplicate);
+  state.mapEditorSelectedId = duplicate.key;
+  try {
+    await replaceRemoteMapSections(state.mapSections);
+    renderAfterMapSettingsChange("Section duplicated");
+  } catch (error) {
+    console.error(error);
+    setAdminStatus("Map save failed");
+  }
+}
+
+async function deleteSelectedMapSection() {
+  const selected = getSelectedMapEditorSection();
+  if (!selected) return;
+  const confirmed = window.confirm(`Delete ${selected.name}? This cannot be undone.`);
+  if (!confirmed) return;
+  state.mapSections = state.mapSections.filter((section) => section.key !== selected.key);
+  state.mapEditorSelectedId = state.mapSections[0]?.key || null;
+  try {
+    await replaceRemoteMapSections(state.mapSections);
+    renderAfterMapSettingsChange("Section deleted");
+  } catch (error) {
+    console.error(error);
+    setAdminStatus("Map save failed");
+  }
+}
+
+function getNextMapSectionOrder() {
+  return state.mapSections.reduce((max, section) => Math.max(max, Number(section.order) || 0), 0) + 1;
+}
+
+function handleMapEditorPointerDown(event) {
+  const sectionButton = event.target.closest("[data-editor-section]");
+  if (!sectionButton || !els.mapEditorCanvas) return;
+  event.preventDefault();
+  const section = getLocationZone(sectionButton.dataset.editorSection);
+  if (!section) return;
+  state.mapEditorSelectedId = section.key;
+  renderMapEditorInspector();
+  els.mapEditorCanvas.querySelectorAll(".map-editor-section").forEach((node) => {
+    node.classList.toggle("is-selected", node.dataset.editorSection === section.key);
+  });
+  sectionButton.setPointerCapture?.(event.pointerId);
+  state.mapEditorDrag = {
+    key: section.key,
+    mode: event.target.closest("[data-editor-resize]") ? "resize" : "move",
+    startX: event.clientX,
+    startY: event.clientY,
+    bounds: els.mapEditorCanvas.getBoundingClientRect(),
+    original: structuredCloneSafe(section)
+  };
+  document.addEventListener("pointermove", handleMapEditorPointerMove);
+  document.addEventListener("pointerup", handleMapEditorPointerUp, { once: true });
+}
+
+function handleMapEditorPointerMove(event) {
+  const drag = state.mapEditorDrag;
+  if (!drag) return;
+  const section = getLocationZone(drag.key);
+  if (!section || !drag.bounds.width || !drag.bounds.height) return;
+  const dx = ((event.clientX - drag.startX) / drag.bounds.width) * 100;
+  const dy = ((event.clientY - drag.startY) / drag.bounds.height) * 100;
+
+  if (drag.mode === "resize") {
+    section.width = normalizeMapEditorValue(drag.original.width + dx, 1, 100);
+    section.height = normalizeMapEditorValue(drag.original.height + dy, 1, 100);
+  } else {
+    section.left = normalizeMapEditorValue(drag.original.left + dx, 0, 99);
+    section.top = normalizeMapEditorValue(drag.original.top + dy, 0, 99);
+  }
+
+  upsertMapSection(section);
+  applyMapEditorSectionDom(section);
+  updateMapEditorInspectorValues(section);
+  updateMapEditorDimensionText(section);
+  renderMapZones();
+}
+
+function handleMapEditorPointerUp() {
+  document.removeEventListener("pointermove", handleMapEditorPointerMove);
+  const section = state.mapEditorDrag ? getLocationZone(state.mapEditorDrag.key) : null;
+  state.mapEditorDrag = null;
+  if (section) scheduleMapEditorSave(section);
+}
+
+function handleMapEditorInspectorInput(event) {
+  const section = getSelectedMapEditorSection();
+  if (!section || !event.target.closest("#mapEditorInspector")) return;
+
+  section.name = els.mapEditorName.value.trim() || section.name;
+  section.type = normalizeSectionType(els.mapEditorType.value);
+  section.label = els.mapEditorLabel.value.trim() || section.name;
+  section.shortLabel = section.label;
+  const pickedColor = normalizeHexColor(els.mapEditorColor.value);
+  section.color = pickedColor === "#ffffff" && !section.color ? "" : pickedColor;
+  section.left = normalizeMapEditorValue(Number(els.mapEditorX.value), 0, 99);
+  section.top = normalizeMapEditorValue(Number(els.mapEditorY.value), 0, 99);
+  section.width = normalizeMapEditorValue(Number(els.mapEditorWidth.value), 1, 100);
+  section.height = normalizeMapEditorValue(Number(els.mapEditorHeight.value), 1, 100);
+  section.rotation = clamp(Number(els.mapEditorRotation.value) || 0, -180, 180);
+  section.categories = parseCategoryList(els.mapEditorCategories.value);
+  section.assignedProducts = [...(els.mapEditorProducts.selectedOptions || [])].map((option) => option.value);
+
+  upsertMapSection(section);
+  applyMapEditorSectionDom(section);
+  updateMapEditorDimensionText(section);
+  renderMapZones();
+  renderLocationOptions();
+  renderNavigation();
+  scheduleMapEditorSave(section);
+}
+
+function normalizeMapEditorValue(value, min, max) {
+  const numericValue = Number.isFinite(Number(value)) ? Number(value) : min;
+  const snapped = state.mapEditorSnapToGrid ? Math.round(numericValue / MAP_EDITOR_GRID_SIZE) * MAP_EDITOR_GRID_SIZE : numericValue;
+  return Number(clamp(snapped, min, max).toFixed(1));
+}
+
+function applyMapEditorSectionDom(section) {
+  const node = els.mapEditorCanvas?.querySelector(`[data-editor-section="${escapeCSSSelector(section.key)}"]`);
+  if (!node) return;
+  node.dataset.zoneType = getZoneType(section.key);
+  node.dataset.hasColor = section.color ? "true" : "false";
+  node.setAttribute("style", getMapSectionInlineStyle(section));
+  const label = node.querySelector(".map-zone-label");
+  if (label) label.innerHTML = renderLocationShortLabel(section.key, section.label);
+}
+
+function updateMapEditorInspectorValues(section) {
+  if (!section) return;
+  els.mapEditorX.value = formatMapNumber(section.left);
+  els.mapEditorY.value = formatMapNumber(section.top);
+  els.mapEditorWidth.value = formatMapNumber(section.width);
+  els.mapEditorHeight.value = formatMapNumber(section.height);
+  els.mapEditorRotation.value = Math.round(section.rotation || 0);
+}
+
+function updateMapEditorDimensionText(section) {
+  if (!els.mapEditorDimensions) return;
+  els.mapEditorDimensions.textContent = `X ${formatMapNumber(section.left)}% | Y ${formatMapNumber(section.top)}% | W ${formatMapNumber(section.width)}% | H ${formatMapNumber(section.height)}% | ${Math.round(section.rotation || 0)} deg`;
+}
+
+function scheduleMapEditorSave(section) {
+  window.clearTimeout(state.mapEditorSaveTimer);
+  if (els.mapSectionStatus) els.mapSectionStatus.textContent = "Saving map";
+  state.mapEditorSaveTimer = window.setTimeout(async () => {
+    try {
+      await persistMapSection(section);
+      renderLocationOptions();
+      renderNavigation();
+      if (els.mapSectionStatus) els.mapSectionStatus.textContent = "Map saved";
+      window.setTimeout(() => {
+        if (els.mapSectionStatus) els.mapSectionStatus.textContent = `${state.mapSections.length} sections`;
+      }, 1400);
+    } catch (error) {
+      console.error(error);
+      if (els.mapSectionStatus) els.mapSectionStatus.textContent = "Map save failed";
+    }
+  }, MAP_EDITOR_SAVE_DELAY);
 }
 
 function renderAfterMapSettingsChange(statusText) {
@@ -2107,6 +2452,98 @@ function renderAfterMapSettingsChange(statusText) {
   renderAdminList();
   els.mapSectionStatus.textContent = statusText;
   window.setTimeout(renderMapSettings, 1600);
+}
+
+function exportMapBackup() {
+  const payload = {
+    app: "Haul Mart",
+    type: "map-layout-backup",
+    exportedAt: new Date().toISOString(),
+    sectionCount: state.mapSections.length,
+    sections: state.mapSections.map(serializeMapSection)
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const stamp = new Date().toISOString().slice(0, 10);
+  link.href = url;
+  link.download = `haul-mart-map-backup-${stamp}.json`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  setAdminStatus("Map exported");
+}
+
+async function importMapBackup() {
+  const file = els.importMapJsonFile?.files?.[0];
+  if (!file) return;
+
+  try {
+    const backup = JSON.parse(await readFileAsText(file));
+    const sections = normalizeImportedMapBackup(backup);
+    if (!sections.length) {
+      setAdminStatus("Map import failed");
+      showAdminMessage(els.mapSectionMessage, "No map sections found in that file.", "error");
+      return;
+    }
+    await replaceRemoteMapSections(sections);
+    state.mapSections = sortMapSections(sections);
+    state.mapEditorSelectedId = state.mapSections[0]?.key || null;
+    showAdminMessage(els.mapSectionMessage, "Map imported.", "success");
+    renderAfterMapSettingsChange("Map imported");
+  } catch (error) {
+    console.error(error);
+    setAdminStatus("Map import failed");
+    showAdminMessage(els.mapSectionMessage, "Map JSON could not be imported.", "error");
+  } finally {
+    if (els.importMapJsonFile) els.importMapJsonFile.value = "";
+  }
+}
+
+function normalizeImportedMapBackup(backup) {
+  const rawSections = Array.isArray(backup) ? backup : backup?.sections;
+  if (!Array.isArray(rawSections)) return [];
+  const usedIds = new Set();
+  return rawSections
+    .map((section, index) => {
+      const baseId = slugify(section?.id || section?.key || section?.name || `section-${index + 1}`);
+      const id = uniqueImportedMapSectionId(baseId, usedIds);
+      return normalizeMapSection({
+        ...section,
+        id,
+        key: id
+      }, index);
+    })
+    .filter(Boolean);
+}
+
+function uniqueImportedMapSectionId(base, usedIds) {
+  let id = base || "section";
+  let counter = 2;
+  while (usedIds.has(id)) {
+    id = `${base}-${counter}`;
+    counter += 1;
+  }
+  usedIds.add(id);
+  return id;
+}
+
+async function resetMapLayout() {
+  const confirmed = window.confirm("Reset the store map to the default layout? Current map edits will be replaced.");
+  if (!confirmed) return;
+  const defaults = getDefaultMapSections();
+  try {
+    await replaceRemoteMapSections(defaults);
+    state.mapSections = defaults;
+    state.mapEditorSelectedId = state.mapSections[0]?.key || null;
+    showAdminMessage(els.mapSectionMessage, "Default map restored.", "success");
+    renderAfterMapSettingsChange("Default map restored");
+  } catch (error) {
+    console.error(error);
+    setAdminStatus("Map reset failed");
+    showAdminMessage(els.mapSectionMessage, "Default map could not be restored.", "error");
+  }
 }
 
 async function savePromotion(event) {
@@ -2839,7 +3276,9 @@ function getProductLocations() {
 }
 
 function getCategoryByLocation(locationKey) {
-  return state.products.find((product) => getProductLocationKey(product) === locationKey)?.category || null;
+  const section = getLocationZone(locationKey);
+  if (section?.categories?.length) return section.categories[0];
+  return getProductsForLocation(locationKey)[0]?.category || null;
 }
 
 function getLocationProductGroups(locationKey) {
@@ -2853,11 +3292,20 @@ function getLocationProductGroups(locationKey) {
   }
 
   return [...new Set(
-    state.products
-      .filter((product) => getProductLocationKey(product) === locationKey)
+    getProductsForLocation(locationKey)
       .map((product) => cleanGroupLabel(product.category))
       .filter(Boolean)
   )].slice(0, 6);
+}
+
+function getProductsForLocation(locationKey) {
+  const section = getLocationZone(locationKey);
+  const assignedProducts = new Set(section?.assignedProducts || []);
+  return state.products.filter((product) =>
+    product.locationKey === locationKey
+    || assignedProducts.has(product.id)
+    || (!assignedProducts.size && product.aisle && `aisle-${product.aisle}` === locationKey)
+  );
 }
 
 function cleanGroupLabel(category) {
@@ -2869,9 +3317,16 @@ function cleanGroupLabel(category) {
 }
 
 function getProductLocationKey(product) {
+  const assignedSection = stateReady ? getAssignedProductSection(product?.id) : null;
+  if (assignedSection) return assignedSection.key;
   if (product.locationKey) return product.locationKey;
   if (product.aisle) return `aisle-${product.aisle}`;
   return "aisle-1";
+}
+
+function getAssignedProductSection(productId) {
+  if (!productId) return null;
+  return getLocationZones().find((section) => (section.assignedProducts || []).includes(productId)) || null;
 }
 
 function getProductLocationLabel(product) {
@@ -2879,11 +3334,11 @@ function getProductLocationLabel(product) {
 }
 
 function getLocationZones() {
-  return [...LOCATION_ZONES, ...state.mapSections];
+  return state.mapSections?.length ? state.mapSections : getDefaultMapSections();
 }
 
 function getLocationZone(locationKey) {
-  return LOCATION_BY_KEY.get(locationKey) || state.mapSections.find((section) => section.key === locationKey) || null;
+  return getLocationZones().find((section) => section.key === locationKey) || LOCATION_BY_KEY.get(locationKey) || null;
 }
 
 function getProductVariants(product) {
@@ -2947,7 +3402,7 @@ function getZoneType(locationKey) {
   const sectionType = getLocationZone(locationKey)?.type;
   if (sectionType) return sectionType;
   if (locationKey.startsWith("meat")) return "meat";
-  if (locationKey.startsWith("frozen")) return "frozen";
+  if (locationKey.startsWith("frozen")) return "freezer";
   if (locationKey.startsWith("wall")) return "wall";
   return "aisle";
 }
@@ -3141,10 +3596,114 @@ function normalizeGroceryListItem(item) {
 
 function loadMapSections() {
   const saved = readJSON(STORAGE_KEYS.mapSections, []);
-  if (!Array.isArray(saved)) return [];
-  return saved
+  if (!Array.isArray(saved) || !saved.length) return getDefaultMapSections();
+  return normalizeLoadedMapSections(saved);
+}
+
+function normalizeLoadedMapSections(sections) {
+  if (!Array.isArray(sections) || !sections.length) return getDefaultMapSections();
+  const normalized = sections
     .map((section, index) => normalizeMapSection(section, index))
     .filter(Boolean);
+  if (isFullMapLayout(normalized)) return sortMapSections(normalized);
+  return mergeMapSections(getDefaultMapSections(), normalized);
+}
+
+function isFullMapLayout(sections) {
+  if (!Array.isArray(sections)) return false;
+  const keys = new Set(sections.map((section) => section.key));
+  return sections.length >= LOCATION_ZONES.length || ["checkout", "entrance", "restroom"].some((type) =>
+    sections.some((section) => section.type === type)
+  ) || ["aisle-1", "aisle-10", "meat-1", "wall-1"].every((key) => keys.has(key));
+}
+
+function getDefaultMapSections() {
+  const shelves = LOCATION_ZONES.map((zone, index) => normalizeMapSection({
+    ...zone,
+    id: zone.key,
+    key: zone.key,
+    name: zone.label,
+    type: inferMapSectionType(zone.key),
+    shortLabel: getDefaultShortLabel(zone.key, zone.label),
+    categories: LOCATION_PRODUCT_GROUPS[zone.key] || [],
+    assignedProducts: [],
+    rotation: 0,
+    color: "",
+    order: zone.order ?? index
+  }, index));
+
+  const landmarks = MAP_LANDMARKS.map((landmark, index) => {
+    const section = convertLandmarkToMapSection(landmark, index);
+    return normalizeMapSection(section, LOCATION_ZONES.length + index);
+  });
+
+  return [...shelves, ...landmarks].filter(Boolean);
+}
+
+function convertLandmarkToMapSection(landmark, index) {
+  const label = landmark.label;
+  const lowerLabel = normalize(label);
+  const type = landmark.type === "cashier"
+    ? "checkout"
+    : lowerLabel.includes("restroom")
+      ? "restroom"
+      : lowerLabel.includes("entrance") || lowerLabel.includes("exit")
+        ? "entrance"
+        : "custom";
+  const keyBase = type === "checkout"
+    ? `checkout-${index + 1}`
+    : `${type}-${slugify(label)}-${index + 1}`;
+  return {
+    id: keyBase,
+    key: keyBase,
+    name: type === "checkout" ? `Checkout ${index + 1}` : titleCase(label),
+    type,
+    label,
+    shortLabel: label,
+    categories: [],
+    assignedProducts: [],
+    order: 200 + index,
+    left: landmark.left,
+    top: landmark.top,
+    width: landmark.width,
+    height: landmark.height,
+    rotation: 0,
+    color: MAP_SECTION_COLORS[type] || ""
+  };
+}
+
+function inferMapSectionType(key) {
+  if (key.startsWith("meat")) return "meat";
+  if (key.startsWith("frozen")) return "freezer";
+  if (key.startsWith("wall")) return "wall";
+  return "aisle";
+}
+
+function getDefaultShortLabel(key, label) {
+  const [type, number] = String(key).split("-");
+  const prefix = {
+    meat: "M",
+    frozen: "F",
+    aisle: "A",
+    wall: "W"
+  }[type];
+  return prefix && number ? `${prefix}${number}` : label;
+}
+
+function mergeMapSections(baseSections, overrideSections) {
+  const base = baseSections.map((section, index) => normalizeMapSection(section, index)).filter(Boolean);
+  const overrides = Array.isArray(overrideSections)
+    ? overrideSections.map((section, index) => normalizeMapSection(section, index)).filter(Boolean)
+    : [];
+  const overrideMap = new Map(overrides.map((section) => [section.key, section]));
+  const baseKeys = new Set(base.map((section) => section.key));
+  const merged = base.map((section) => overrideMap.has(section.key)
+    ? { ...section, ...overrideMap.get(section.key) }
+    : section);
+  overrides.forEach((section) => {
+    if (!baseKeys.has(section.key)) merged.push(section);
+  });
+  return sortMapSections(merged);
 }
 
 function createMapSection(section) {
@@ -3169,8 +3728,12 @@ function normalizeMapSection(section, index = 0) {
   const type = normalizeSectionType(section.type);
   const position = getDefaultMapSectionPosition(type, index);
   const label = String(section.label || name).trim();
+  const key = String(section.key || section.id || `${type}-${slugify(name)}`).trim();
+  const left = Number.isFinite(Number(section.x)) ? Number(section.x) : Number(section.left);
+  const top = Number.isFinite(Number(section.y)) ? Number(section.y) : Number(section.top);
   return {
-    key: section.key || `${type}-${slugify(name)}`,
+    id: key,
+    key,
     name,
     type,
     label,
@@ -3178,16 +3741,24 @@ function normalizeMapSection(section, index = 0) {
     categories: Array.isArray(section.categories)
       ? section.categories.map((category) => String(category).trim()).filter(Boolean)
       : parseCategoryList(section.categories || ""),
+    assignedProducts: Array.isArray(section.assignedProducts || section.products)
+      ? [...new Set((section.assignedProducts || section.products).map((productId) => String(productId).trim()).filter(Boolean))]
+      : [],
     order: Number.isFinite(Number(section.order)) ? Number(section.order) : 100 + index,
-    left: Number.isFinite(Number(section.left)) ? Number(section.left) : position.left,
-    top: Number.isFinite(Number(section.top)) ? Number(section.top) : position.top,
-    width: Number.isFinite(Number(section.width)) ? Number(section.width) : position.width,
-    height: Number.isFinite(Number(section.height)) ? Number(section.height) : position.height
+    left: clamp(Number.isFinite(left) ? left : position.left, 0, 99),
+    top: clamp(Number.isFinite(top) ? top : position.top, 0, 99),
+    width: clamp(Number.isFinite(Number(section.width)) ? Number(section.width) : position.width, 1, 100),
+    height: clamp(Number.isFinite(Number(section.height)) ? Number(section.height) : position.height, 1, 100),
+    rotation: clamp(Number.isFinite(Number(section.rotation)) ? Number(section.rotation) : 0, -180, 180),
+    color: normalizeHexColor(section.color) || MAP_SECTION_COLORS[type] || ""
   };
 }
 
 function normalizeSectionType(type) {
-  return ["aisle", "wall", "frozen", "meat"].includes(type) ? type : "aisle";
+  const clean = String(type || "").toLowerCase().trim();
+  if (clean === "frozen") return "freezer";
+  if (clean === "cashier") return "checkout";
+  return MAP_SECTION_TYPES.includes(clean) ? clean : "aisle";
 }
 
 function getDefaultMapSectionPosition(type, index) {
@@ -3198,8 +3769,14 @@ function getDefaultMapSectionPosition(type, index) {
   const sizeByType = {
     aisle: { width: 5.0, height: 9.0 },
     wall: { width: 5.0, height: 9.0 },
-    frozen: { width: 11.5, height: 4.3 },
-    meat: { width: 11.5, height: 4.3 }
+    freezer: { width: 11.5, height: 4.3 },
+    meat: { width: 11.5, height: 4.3 },
+    produce: { width: 9.5, height: 6.0 },
+    dairy: { width: 9.5, height: 5.0 },
+    checkout: { width: 7.0, height: 5.5 },
+    entrance: { width: 15.0, height: 4.0 },
+    restroom: { width: 10.0, height: 9.0 },
+    custom: { width: 8.0, height: 6.0 }
   };
   const size = sizeByType[type] || sizeByType.aisle;
   return {
@@ -3375,18 +3952,51 @@ function uniqueMapSectionKey(base) {
   return key;
 }
 
+function sortMapSections(sections) {
+  return sections.slice().sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+}
+
 function persistMapSections() {
   if (state.firebaseReady) return;
-  saveJSON(STORAGE_KEYS.mapSections, state.mapSections);
+  saveJSON(STORAGE_KEYS.mapSections, state.mapSections.map(serializeMapSection));
 }
 
 async function persistMapSection(section) {
+  const normalized = normalizeMapSection(section);
   if (state.firebaseReady && state.firebase?.saveMapSection) {
-    await state.firebase.saveMapSection(serializeMapSection(section));
+    await state.firebase.saveMapSection(serializeMapSection(normalized));
     return;
   }
-  state.mapSections.push(section);
+  upsertMapSection(normalized);
   persistMapSections();
+}
+
+async function deleteRemoteMapSection(sectionKey) {
+  if (state.firebaseReady && state.firebase?.deleteMapSection) {
+    await state.firebase.deleteMapSection(sectionKey);
+  }
+}
+
+async function replaceRemoteMapSections(sections) {
+  const normalizedSections = sortMapSections(sections.map((section, index) => normalizeMapSection(section, index)).filter(Boolean));
+  if (state.firebaseReady && state.firebase?.replaceMapSections) {
+    await state.firebase.replaceMapSections(normalizedSections.map(serializeMapSection));
+    return;
+  }
+  state.mapSections = normalizedSections;
+  persistMapSections();
+}
+
+function upsertMapSection(section) {
+  const normalized = normalizeMapSection(section);
+  if (!normalized) return;
+  const index = state.mapSections.findIndex((entry) => entry.key === normalized.key);
+  if (index >= 0) {
+    state.mapSections[index] = normalized;
+  } else {
+    state.mapSections.push(normalized);
+  }
+  state.mapSections = sortMapSections(state.mapSections);
 }
 
 function loadProducts() {
@@ -3690,17 +4300,23 @@ function serializeProduct(product) {
 function serializeMapSection(section) {
   const normalized = normalizeMapSection(section);
   return {
+    id: normalized.key,
     key: normalized.key,
     name: normalized.name,
     type: normalized.type,
     label: normalized.label,
     shortLabel: normalized.shortLabel,
     categories: normalized.categories,
+    assignedProducts: normalized.assignedProducts,
     order: normalized.order,
+    x: normalized.left,
+    y: normalized.top,
     left: normalized.left,
     top: normalized.top,
     width: normalized.width,
-    height: normalized.height
+    height: normalized.height,
+    rotation: normalized.rotation,
+    color: normalized.color
   };
 }
 
@@ -3790,6 +4406,32 @@ function createId(prefix) {
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
+}
+
+function formatMapNumber(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "0";
+  return Number(number.toFixed(1)).toString();
+}
+
+function normalizeHexColor(value) {
+  const color = String(value || "").trim();
+  return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : "";
+}
+
+function getContrastTextColor(color) {
+  const hex = normalizeHexColor(color);
+  if (!hex) return "var(--ink)";
+  const red = parseInt(hex.slice(1, 3), 16);
+  const green = parseInt(hex.slice(3, 5), 16);
+  const blue = parseInt(hex.slice(5, 7), 16);
+  const luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255;
+  return luminance > 0.62 ? "#101114" : "#ffffff";
+}
+
+function escapeCSSSelector(value) {
+  if (window.CSS?.escape) return CSS.escape(String(value));
+  return String(value).replace(/["\\]/g, "\\$&");
 }
 
 function escapeHTML(value) {
