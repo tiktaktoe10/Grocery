@@ -3,7 +3,6 @@
     apiKey: "AIzaSyBBKgwaYowTZu_XqqiEoPn5VhKBU8fgLD0",
     authDomain: "haul-mart.firebaseapp.com",
     projectId: "haul-mart",
-    storageBucket: "haul-mart.firebasestorage.app",
     messagingSenderId: "694278261304",
     appId: "1:694278261304:web:0dcf6574081804949374cd",
     measurementId: "G-1H37GCPG5G"

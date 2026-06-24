@@ -23,7 +23,10 @@ const STORAGE_KEYS = {
 const PRODUCT_IMAGE_BASE_PATH = "assets/products/";
 const IMAGE_FILE_EXTENSION = /\.(avif|gif|jpe?g|png|svg|webp)$/i;
 const DATA_IMAGE_PATTERN = /^data:image\/(?:avif|gif|jpe?g|png|svg\+xml|webp);base64,/i;
-const BACKGROUND_REMOVAL_MAX_SIZE = 1100;
+const ADMIN_IMAGE_MAX_WIDTH = 500;
+const ADMIN_IMAGE_QUALITY = 0.6;
+const ADMIN_IMAGE_MAX_SOURCE_BYTES = 8 * 1024 * 1024;
+const ADMIN_IMAGE_MAX_FIRESTORE_BYTES = 700 * 1024;
 let knownProductImagePaths = null;
 
 const LOCATION_ZONES = [
@@ -1473,7 +1476,7 @@ async function saveInlineAdminProduct(event) {
     renderAfterInventoryChange("Saved");
   } catch (error) {
     console.error(error);
-    setAdminStatus("Save failed");
+    setAdminStatus(error.message || "Save failed");
   }
 }
 
@@ -1615,7 +1618,7 @@ async function addAdminProduct(event) {
     }
   } catch (error) {
     console.error(error);
-    setAdminStatus("Add failed");
+    setAdminStatus(error.message || "Add failed");
     return;
   }
 
@@ -1706,11 +1709,19 @@ async function handleImageUpload(fileInput, textInput, previewNode) {
     updateImagePreview(previewNode, textInput.value);
     return;
   }
+  if (file.size > ADMIN_IMAGE_MAX_SOURCE_BYTES) {
+    fileInput.value = "";
+    updateImagePreview(
+      previewNode,
+      textInput.value,
+      `Image is too large. Use an image under ${formatFileSize(ADMIN_IMAGE_MAX_SOURCE_BYTES)}.`,
+      "warning"
+    );
+    return;
+  }
 
-  const originalImage = await readFileAsDataURL(file);
   await processAdminImageSource({
     source: file,
-    originalImage,
     textInput,
     previewNode,
     fileInput
@@ -1724,10 +1735,8 @@ async function handleImagePaste(event, textInput, previewNode, fileInput = null)
   if (imageFile) {
     event.preventDefault();
     if (fileInput) fileInput.value = "";
-    const originalImage = await readFileAsDataURL(imageFile);
     await processAdminImageSource({
       source: imageFile,
-      originalImage,
       textInput,
       previewNode,
       fileInput
@@ -1739,10 +1748,9 @@ async function handleImagePaste(event, textInput, previewNode, fileInput = null)
   if (!imageValue) return;
   event.preventDefault();
   if (fileInput) fileInput.value = "";
-  const originalImage = normalizeProductImagePath(imageValue) || imageValue;
+  const imageSource = normalizeProductImagePath(imageValue) || imageValue;
   await processAdminImageSource({
-    source: originalImage,
-    originalImage,
+    source: imageSource,
     textInput,
     previewNode,
     fileInput
@@ -1785,53 +1793,82 @@ function decodeHTML(value) {
   return parser.value;
 }
 
-async function processAdminImageSource({ source, originalImage, textInput, previewNode, fileInput = null }) {
-  const fallbackImage = normalizeProductImagePath(originalImage) || originalImage || textInput.value;
-  textInput.value = fallbackImage;
-  setImageProcessingState(previewNode, "Removing background...", "working");
+async function processAdminImageSource({ source, textInput, previewNode, fileInput = null }) {
+  const currentImage = normalizeProductImagePath(textInput.value);
+  const fallbackImage = currentImage;
+  setImageProcessingState(previewNode, "Compressing image for Firestore...", "working");
   try {
-    const result = await removeImageBackgroundFromSource(source);
+    const result = await compressImageForFirestore(source);
     textInput.value = result.dataUrl;
     if (fileInput) fileInput.value = "";
-    updateImagePreview(previewNode, textInput.value, "Background removed. Transparent PNG ready.", "success");
+    updateImagePreview(previewNode, textInput.value, `Compressed for Firestore (${formatFileSize(result.bytes)}).`, "success");
   } catch (error) {
+    console.warn("Product image compression failed:", error);
     textInput.value = fallbackImage;
-    updateImagePreview(previewNode, textInput.value, "Background removal was not available for this image. Original image kept.", "warning");
+    updateImagePreview(
+      previewNode,
+      textInput.value,
+      "Image could not be compressed for Firestore. Try a smaller upload or a direct image URL.",
+      "warning"
+    );
   }
 }
 
-async function removeImageBackgroundFromSource(source) {
+async function compressImageForFirestore(source) {
   const image = await loadImageForCanvas(source);
-  const { width, height } = getCanvasSize(image.width || image.naturalWidth, image.height || image.naturalHeight);
+  const { width, height } = getCompressedImageSize(image.width || image.naturalWidth, image.height || image.naturalHeight);
   if (!width || !height) throw new Error("Image could not be read.");
 
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
-  const context = canvas.getContext("2d", { willReadFrequently: true });
-  context.clearRect(0, 0, width, height);
+  const context = canvas.getContext("2d");
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, width, height);
   context.drawImage(image, 0, 0, width, height);
 
-  const imageData = context.getImageData(0, 0, width, height);
-  const background = estimateBackgroundColor(imageData, width, height);
-  if (!background) throw new Error("Background is not plain enough.");
+  const encoded = encodeCompressedProductImage(canvas);
+  if (encoded.bytes > ADMIN_IMAGE_MAX_FIRESTORE_BYTES) {
+    throw new Error(`Compressed image is larger than ${formatFileSize(ADMIN_IMAGE_MAX_FIRESTORE_BYTES)}.`);
+  }
 
-  const mask = createConnectedBackgroundMask(imageData, width, height, background);
-  const removedCount = applyTransparentBackground(imageData, width, height, mask, background);
-  if (removedCount < width * height * 0.08) throw new Error("No removable background found.");
-
-  context.putImageData(imageData, 0, 0);
-  return { dataUrl: canvas.toDataURL("image/png"), width, height };
+  return {
+    ...encoded,
+    width,
+    height
+  };
 }
 
-function getCanvasSize(sourceWidth, sourceHeight) {
+function getCompressedImageSize(sourceWidth, sourceHeight) {
   const width = Math.max(1, Number(sourceWidth) || 0);
   const height = Math.max(1, Number(sourceHeight) || 0);
-  const scale = Math.min(1, BACKGROUND_REMOVAL_MAX_SIZE / Math.max(width, height));
+  const scale = Math.min(1, ADMIN_IMAGE_MAX_WIDTH / width);
   return {
     width: Math.round(width * scale),
     height: Math.round(height * scale)
   };
+}
+
+function encodeCompressedProductImage(canvas) {
+  const webp = canvas.toDataURL("image/webp", ADMIN_IMAGE_QUALITY);
+  const dataUrl = webp.startsWith("data:image/webp")
+    ? webp
+    : canvas.toDataURL("image/jpeg", ADMIN_IMAGE_QUALITY);
+  return {
+    dataUrl,
+    bytes: getDataUrlByteLength(dataUrl)
+  };
+}
+
+function getDataUrlByteLength(dataUrl) {
+  const base64 = String(dataUrl || "").split(",")[1] || "";
+  return Math.ceil((base64.replace(/=+$/, "").length * 3) / 4);
+}
+
+function formatFileSize(bytes) {
+  const value = Math.max(0, Number(bytes) || 0);
+  if (value >= 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+  return `${Math.ceil(value / 1024)} KB`;
 }
 
 async function loadImageForCanvas(source) {
@@ -1873,136 +1910,6 @@ function loadImageElement(src) {
     image.onload = () => resolve(image);
     image.onerror = () => reject(new Error("Image could not be loaded."));
     image.src = src;
-  });
-}
-
-function estimateBackgroundColor(imageData, width, height) {
-  const data = imageData.data;
-  const samples = [];
-  const step = Math.max(1, Math.floor(Math.min(width, height) / 48));
-
-  for (let x = 0; x < width; x += step) {
-    samples.push(getPixel(data, width, x, 0), getPixel(data, width, x, height - 1));
-  }
-  for (let y = 0; y < height; y += step) {
-    samples.push(getPixel(data, width, 0, y), getPixel(data, width, width - 1, y));
-  }
-
-  const opaqueSamples = samples.filter((pixel) => pixel.a > 180);
-  if (opaqueSamples.length < 8) return null;
-
-  const color = {
-    r: median(opaqueSamples.map((pixel) => pixel.r)),
-    g: median(opaqueSamples.map((pixel) => pixel.g)),
-    b: median(opaqueSamples.map((pixel) => pixel.b))
-  };
-  const distances = opaqueSamples.map((pixel) => colorDistance(pixel, color));
-  const averageDistance = distances.reduce((sum, value) => sum + value, 0) / distances.length;
-  const solidShare = distances.filter((value) => value <= 46).length / distances.length;
-  const isPlainWhite = color.r > 225 && color.g > 225 && color.b > 225 && solidShare > 0.5;
-
-  if (!isPlainWhite && (solidShare < 0.72 || averageDistance > 38)) return null;
-
-  return {
-    ...color,
-    threshold: clamp(Math.round(averageDistance + (isPlainWhite ? 42 : 34)), 34, 74)
-  };
-}
-
-function createConnectedBackgroundMask(imageData, width, height, background) {
-  const data = imageData.data;
-  const total = width * height;
-  const mask = new Uint8Array(total);
-  const queue = [];
-
-  const enqueue = (x, y) => {
-    if (x < 0 || y < 0 || x >= width || y >= height) return;
-    const index = y * width + x;
-    if (mask[index]) return;
-    const pixel = getPixel(data, width, x, y);
-    if (pixel.a < 16 || colorDistance(pixel, background) <= background.threshold) {
-      mask[index] = 1;
-      queue.push(index);
-    }
-  };
-
-  for (let x = 0; x < width; x += 1) {
-    enqueue(x, 0);
-    enqueue(x, height - 1);
-  }
-  for (let y = 0; y < height; y += 1) {
-    enqueue(0, y);
-    enqueue(width - 1, y);
-  }
-
-  for (let head = 0; head < queue.length; head += 1) {
-    const index = queue[head];
-    const x = index % width;
-    const y = Math.floor(index / width);
-    enqueue(x + 1, y);
-    enqueue(x - 1, y);
-    enqueue(x, y + 1);
-    enqueue(x, y - 1);
-  }
-
-  return mask;
-}
-
-function applyTransparentBackground(imageData, width, height, mask, background) {
-  const data = imageData.data;
-  let removedCount = 0;
-
-  for (let index = 0; index < mask.length; index += 1) {
-    if (!mask[index]) continue;
-    data[index * 4 + 3] = 0;
-    removedCount += 1;
-  }
-
-  for (let y = 1; y < height - 1; y += 1) {
-    for (let x = 1; x < width - 1; x += 1) {
-      const index = y * width + x;
-      if (mask[index]) continue;
-      const touchesBackground = mask[index - 1] || mask[index + 1] || mask[index - width] || mask[index + width];
-      if (!touchesBackground) continue;
-      const pixel = getPixel(data, width, x, y);
-      const distance = colorDistance(pixel, background);
-      if (distance > background.threshold + 28) continue;
-      const alpha = clamp(Math.round(((distance - background.threshold) / 28) * 255), 0, 255);
-      data[index * 4 + 3] = Math.min(data[index * 4 + 3], alpha);
-    }
-  }
-
-  return removedCount;
-}
-
-function getPixel(data, width, x, y) {
-  const index = (y * width + x) * 4;
-  return {
-    r: data[index],
-    g: data[index + 1],
-    b: data[index + 2],
-    a: data[index + 3]
-  };
-}
-
-function colorDistance(pixel, color) {
-  const red = pixel.r - color.r;
-  const green = pixel.g - color.g;
-  const blue = pixel.b - color.b;
-  return Math.sqrt(red * red + green * green + blue * blue);
-}
-
-function median(values) {
-  const sorted = [...values].sort((a, b) => a - b);
-  return sorted[Math.floor(sorted.length / 2)] || 0;
-}
-
-function readFileAsDataURL(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
   });
 }
 
@@ -2832,6 +2739,7 @@ function mergeProductImage(defaultProduct, savedProduct) {
   const defaultImage = getProductImagePath(defaultProduct);
   const savedImage = getProductImagePath(savedProduct);
   if (!savedImage) return defaultImage;
+  if (isFirestoreProductImage(savedImage)) return savedImage;
   if (!defaultImage) return savedImage;
   if (savedImage === defaultImage || hasKnownProductImagePath(savedImage)) return savedImage;
   return defaultImage;
@@ -2847,7 +2755,11 @@ function chooseDeployableProductImage(productImage, mappedImage) {
 
 function isPortableAdminImage(imagePath) {
   const image = String(imagePath || "").trim();
-  return DATA_IMAGE_PATTERN.test(image) || /^https?:\/\//i.test(image);
+  return isFirestoreProductImage(image) || /^https?:\/\//i.test(image);
+}
+
+function isFirestoreProductImage(imagePath) {
+  return DATA_IMAGE_PATTERN.test(String(imagePath || "").trim());
 }
 
 function hasKnownProductImagePath(imagePath) {
@@ -2895,7 +2807,35 @@ async function replaceRemoteProducts(products) {
 }
 
 async function prepareProductForRemote(product) {
-  return normalizeProduct(structuredCloneSafe(product));
+  const normalized = normalizeProduct(structuredCloneSafe(product));
+  assertFirestoreImageSizes(normalized);
+  return normalized;
+}
+
+function assertFirestoreImageSizes(product) {
+  const images = [
+    { label: product.name || "Product image", image: product.image },
+    ...getProductVariants(product).map((variant) => ({
+      label: `${product.name || "Product"} ${variant.name || "variant"}`,
+      image: variant.image
+    }))
+  ];
+  const embeddedImages = images
+    .filter(({ image }) => isFirestoreProductImage(image))
+    .map((entry) => ({
+      ...entry,
+      bytes: getDataUrlByteLength(entry.image)
+    }));
+  const oversized = embeddedImages.find(({ bytes }) => bytes > ADMIN_IMAGE_MAX_FIRESTORE_BYTES);
+
+  if (oversized) {
+    throw new Error(`${oversized.label} image is too large for Firestore.`);
+  }
+
+  const totalBytes = embeddedImages.reduce((sum, entry) => sum + entry.bytes, 0);
+  if (totalBytes > ADMIN_IMAGE_MAX_FIRESTORE_BYTES) {
+    throw new Error("Product images are too large for one Firestore record.");
+  }
 }
 
 function serializeProduct(product) {
