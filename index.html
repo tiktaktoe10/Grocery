@@ -240,6 +240,21 @@
       </section>
     </main>
 
+    <section id="productDetailModal" class="mobile-product-modal is-hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="productDetailTitle">
+      <div class="mobile-product-sheet">
+        <button id="closeProductDetail" class="modal-close-button" type="button" aria-label="Close product details">X</button>
+        <div id="productDetailContent"></div>
+      </div>
+    </section>
+
+    <section id="imagePreviewModal" class="image-preview-modal is-hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-label="Product image preview">
+      <button id="closeImagePreview" class="modal-close-button image-preview-close" type="button" aria-label="Close image preview">X</button>
+      <button id="imagePreviewPrev" class="image-preview-nav image-preview-prev" type="button" aria-label="Previous image">&lt;</button>
+      <div id="imagePreviewFrame" class="image-preview-frame"></div>
+      <button id="imagePreviewNext" class="image-preview-nav image-preview-next" type="button" aria-label="Next image">&gt;</button>
+      <div id="imagePreviewThumbs" class="image-preview-thumbs" aria-label="Product image thumbnails"></div>
+    </section>
+
     <footer class="utility-footer">
       <button id="adminAccessLink" class="admin-access-link" type="button">Admin access</button>
     </footer>

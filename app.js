@@ -183,6 +183,13 @@ const state = {
   mapOpen: true,
   mapProductId: null,
   mapFocusTimer: null,
+  mobileDetailProductId: null,
+  imagePreviewProductId: null,
+  imagePreviewIndex: 0,
+  imagePreviewScale: 1,
+  imagePreviewTouchStartX: 0,
+  imagePreviewPinchDistance: 0,
+  imagePreviewPinchScale: 1,
   firebase: null,
   firebaseReady: false,
   firebaseProductsLoaded: false,
@@ -286,6 +293,15 @@ function cacheElements() {
   els.mapSectionMessage = document.querySelector("#mapSectionMessage");
   els.mapSectionStatus = document.querySelector("#mapSectionStatus");
   els.mapSectionList = document.querySelector("#mapSectionList");
+  els.productDetailModal = document.querySelector("#productDetailModal");
+  els.productDetailContent = document.querySelector("#productDetailContent");
+  els.closeProductDetail = document.querySelector("#closeProductDetail");
+  els.imagePreviewModal = document.querySelector("#imagePreviewModal");
+  els.imagePreviewFrame = document.querySelector("#imagePreviewFrame");
+  els.imagePreviewThumbs = document.querySelector("#imagePreviewThumbs");
+  els.closeImagePreview = document.querySelector("#closeImagePreview");
+  els.imagePreviewPrev = document.querySelector("#imagePreviewPrev");
+  els.imagePreviewNext = document.querySelector("#imagePreviewNext");
 }
 
 function wireEvents() {
@@ -341,6 +357,16 @@ function wireEvents() {
 
   els.navResults.addEventListener("click", handleProductAction);
   els.closeMap?.addEventListener("click", closeMapPanel);
+  els.closeProductDetail?.addEventListener("click", closeProductDetail);
+  els.productDetailModal?.addEventListener("click", handleProductDetailClick);
+  els.closeImagePreview?.addEventListener("click", closeImagePreview);
+  els.imagePreviewModal?.addEventListener("click", handleImagePreviewClick);
+  els.imagePreviewModal?.addEventListener("touchstart", handleImagePreviewTouchStart, { passive: true });
+  els.imagePreviewModal?.addEventListener("touchmove", handleImagePreviewTouchMove, { passive: false });
+  els.imagePreviewModal?.addEventListener("touchend", handleImagePreviewTouchEnd);
+  els.imagePreviewModal?.addEventListener("wheel", handleImagePreviewWheel, { passive: false });
+  els.imagePreviewPrev?.addEventListener("click", () => moveImagePreview(-1));
+  els.imagePreviewNext?.addEventListener("click", () => moveImagePreview(1));
   els.mapZones.addEventListener("click", handleMapZone);
   document.addEventListener("keydown", handlePageKeydown);
   els.listInput.addEventListener("input", () => renderProductSuggestions("list"));
@@ -663,30 +689,312 @@ function renderVariantOption(product, variant, selectedVariant) {
 
 function handleProductAction(event) {
   const button = event.target.closest("[data-action]");
-  if (!button) return;
-  const product = findProductById(button.dataset.id);
+  if (button) {
+    const product = findProductById(button.dataset.id);
+    if (!product) return;
+
+    if (button.dataset.action === "map") {
+      openProductMap(product.id);
+    }
+
+    if (button.dataset.action === "variant") {
+      state.selectedVariants[product.id] = button.dataset.variantId;
+      state.activeProductId = product.id;
+      renderNavigation();
+    }
+
+    if (button.dataset.action === "list") {
+      const variant = getSelectedVariant(product);
+      addListItem(getProductDisplayName(product, variant), product.id, variant?.id || null);
+      setTab("list");
+    }
+
+    if (button.dataset.action === "budget") {
+      addBudgetItem(product.id, 1, getSelectedVariant(product)?.id || null);
+      setTab("budget");
+    }
+    return;
+  }
+
+  const card = event.target.closest(".product-card");
+  if (!card || !isMobileView()) return;
+  const product = findProductById(card.dataset.productId);
   if (!product) return;
 
-  if (button.dataset.action === "map") {
-    openProductMap(product.id);
+  if (event.target.closest(".product-shot")) {
+    const selectedVariant = getSelectedVariant(product);
+    const display = getProductDisplayDetails(product, selectedVariant);
+    const galleryIndex = getProductImageGallery(product)
+      .findIndex((entry) => entry.src === getImageSource(display.image));
+    openImagePreview(product.id, Math.max(0, galleryIndex));
+    return;
   }
 
-  if (button.dataset.action === "variant") {
-    state.selectedVariants[product.id] = button.dataset.variantId;
-    state.activeProductId = product.id;
-    renderNavigation();
+  openProductDetail(product.id);
+}
+
+function openProductDetail(productId) {
+  if (!isMobileView()) return;
+  const product = findProductById(productId);
+  if (!product) return;
+  state.mobileDetailProductId = product.id;
+  renderProductDetail();
+  els.productDetailModal?.classList.remove("is-hidden");
+  els.productDetailModal?.setAttribute("aria-hidden", "false");
+  syncModalBodyLock();
+  window.requestAnimationFrame(() => els.closeProductDetail?.focus());
+}
+
+function closeProductDetail() {
+  state.mobileDetailProductId = null;
+  els.productDetailModal?.classList.add("is-hidden");
+  els.productDetailModal?.setAttribute("aria-hidden", "true");
+  syncModalBodyLock();
+}
+
+function renderProductDetail() {
+  const product = findProductById(state.mobileDetailProductId);
+  if (!product || !els.productDetailContent) return;
+  const selectedVariant = getSelectedVariant(product);
+  const display = getProductDisplayDetails(product, selectedVariant);
+  const imageSource = getImageSource(display.image);
+  const stockClass = display.inStock ? "in" : "out";
+  const stockText = display.inStock ? "In stock" : "Not available";
+  const locationLabel = getProductLocationLabel(product);
+
+  els.productDetailContent.innerHTML = `
+    <div class="mobile-product-detail">
+      <button class="product-detail-image-button ${imageSource ? "" : "is-missing"}" type="button" data-detail-preview aria-label="Preview image for ${escapeHTML(display.imageAlt)}">
+        ${imageSource
+          ? `<img class="product-detail-image" src="${escapeHTML(imageSource)}" alt="${escapeHTML(display.imageAlt)}" onerror="replaceBrokenDetailImage(this)">`
+          : `<span class="missing-image">Image not available</span>`}
+      </button>
+      <div class="product-detail-copy">
+        <span class="stock-pill ${stockClass}">${stockText}</span>
+        <h2 id="productDetailTitle">${escapeHTML(product.name)}</h2>
+        ${selectedVariant ? `<p class="product-detail-variant-label">${escapeHTML(selectedVariant.name)}</p>` : ""}
+        <div class="product-detail-meta">
+          <div>
+            <span class="meta-label">Price</span>
+            <strong>${CURRENCY.format(display.price)}</strong>
+          </div>
+          <div>
+            <span class="meta-label">Location</span>
+            <span>${escapeHTML(locationLabel)}</span>
+          </div>
+          <div>
+            <span class="meta-label">Category</span>
+            <span>${escapeHTML(product.category)}</span>
+          </div>
+        </div>
+        <section class="product-description">
+          <h3>Description</h3>
+          <p>${escapeHTML(getProductDescription(product, locationLabel))}</p>
+        </section>
+        ${renderProductDetailVariants(product, selectedVariant)}
+      </div>
+    </div>
+  `;
+}
+
+function renderProductDetailVariants(product, selectedVariant) {
+  const variants = getProductVariants(product);
+  if (!variants.length) return "";
+  return `
+    <section class="product-detail-variants" aria-label="Product variants">
+      <h3>Variants</h3>
+      <div class="product-detail-variant-grid">
+        ${variants.map((variant) => renderProductDetailVariant(product, variant, selectedVariant)).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderProductDetailVariant(product, variant, selectedVariant) {
+  const selected = selectedVariant?.id === variant.id;
+  const imageSource = getImageSource(variant.image || product.image);
+  const stockText = variant.inStock ? "In stock" : "Not available";
+  return `
+    <button class="product-detail-variant ${selected ? "is-selected" : ""}" type="button" data-detail-variant="${escapeHTML(variant.id)}" aria-pressed="${selected ? "true" : "false"}">
+      <span class="variant-thumb ${imageSource ? "" : "is-empty"}">
+        ${imageSource ? `<img src="${escapeHTML(imageSource)}" alt="${escapeHTML(`${product.name} ${variant.name}`)}" onerror="replaceBrokenVariantThumb(this)">` : "No image"}
+      </span>
+      <span class="variant-copy">
+        <span class="variant-name">${escapeHTML(variant.name)}</span>
+        <span class="variant-meta">${CURRENCY.format(variant.price)} &middot; ${stockText}</span>
+      </span>
+    </button>
+  `;
+}
+
+function handleProductDetailClick(event) {
+  if (event.target === els.productDetailModal) {
+    closeProductDetail();
+    return;
   }
 
-  if (button.dataset.action === "list") {
-    const variant = getSelectedVariant(product);
-    addListItem(getProductDisplayName(product, variant), product.id, variant?.id || null);
-    setTab("list");
+  const product = findProductById(state.mobileDetailProductId);
+  if (!product) return;
+
+  if (event.target.closest("[data-detail-preview]")) {
+    const selectedVariant = getSelectedVariant(product);
+    const display = getProductDisplayDetails(product, selectedVariant);
+    const imageSource = getImageSource(display.image);
+    const imageIndex = getProductImageGallery(product).findIndex((entry) => entry.src === imageSource);
+    openImagePreview(product.id, Math.max(0, imageIndex));
+    return;
   }
 
-  if (button.dataset.action === "budget") {
-    addBudgetItem(product.id, 1, getSelectedVariant(product)?.id || null);
-    setTab("budget");
+  const variantButton = event.target.closest("[data-detail-variant]");
+  if (!variantButton) return;
+  state.selectedVariants[product.id] = variantButton.dataset.detailVariant;
+  renderProductDetail();
+  renderNavigation();
+}
+
+function getProductDescription(product, locationLabel = getProductLocationLabel(product)) {
+  if (product.description) return product.description;
+  const category = product.category || "Grocery";
+  return `${product.name} is a ${category} item available in ${locationLabel}. Check the product package and choose a variant when available.`;
+}
+
+function openImagePreview(productId, index = 0) {
+  const gallery = getProductImageGallery(findProductById(productId));
+  if (!gallery.length) return;
+  state.imagePreviewProductId = productId;
+  state.imagePreviewIndex = clamp(index, 0, gallery.length - 1);
+  state.imagePreviewScale = 1;
+  renderImagePreview();
+  els.imagePreviewModal?.classList.remove("is-hidden");
+  els.imagePreviewModal?.setAttribute("aria-hidden", "false");
+  syncModalBodyLock();
+  window.requestAnimationFrame(() => els.closeImagePreview?.focus());
+}
+
+function closeImagePreview() {
+  state.imagePreviewProductId = null;
+  state.imagePreviewIndex = 0;
+  state.imagePreviewScale = 1;
+  els.imagePreviewModal?.classList.add("is-hidden");
+  els.imagePreviewModal?.setAttribute("aria-hidden", "true");
+  syncModalBodyLock();
+}
+
+function renderImagePreview() {
+  const gallery = getProductImageGallery(findProductById(state.imagePreviewProductId));
+  if (!gallery.length || !els.imagePreviewFrame || !els.imagePreviewThumbs) return;
+  state.imagePreviewIndex = clamp(state.imagePreviewIndex, 0, gallery.length - 1);
+  const activeImage = gallery[state.imagePreviewIndex];
+  els.imagePreviewFrame.innerHTML = `
+    <img class="image-preview-main-image" src="${escapeHTML(activeImage.src)}" alt="${escapeHTML(activeImage.label)}" style="transform: scale(${state.imagePreviewScale})" onerror="replaceBrokenImagePreview(this)">
+  `;
+  els.imagePreviewThumbs.innerHTML = gallery.map((entry, index) => `
+    <button class="image-preview-thumb ${index === state.imagePreviewIndex ? "is-active" : ""}" type="button" data-preview-index="${index}" aria-label="View ${escapeHTML(entry.label)}">
+      <img src="${escapeHTML(entry.src)}" alt="">
+    </button>
+  `).join("");
+  const multipleImages = gallery.length > 1;
+  els.imagePreviewPrev.hidden = !multipleImages;
+  els.imagePreviewNext.hidden = !multipleImages;
+}
+
+function handleImagePreviewClick(event) {
+  const thumb = event.target.closest("[data-preview-index]");
+  if (thumb) {
+    state.imagePreviewIndex = Number(thumb.dataset.previewIndex) || 0;
+    state.imagePreviewScale = 1;
+    renderImagePreview();
+    return;
   }
+
+  if (event.target === els.imagePreviewModal) {
+    closeImagePreview();
+  }
+}
+
+function moveImagePreview(direction) {
+  const gallery = getProductImageGallery(findProductById(state.imagePreviewProductId));
+  if (gallery.length < 2) return;
+  state.imagePreviewIndex = (state.imagePreviewIndex + direction + gallery.length) % gallery.length;
+  state.imagePreviewScale = 1;
+  renderImagePreview();
+}
+
+function handleImagePreviewTouchStart(event) {
+  if (els.imagePreviewModal?.classList.contains("is-hidden")) return;
+  if (event.touches.length === 2) {
+    state.imagePreviewPinchDistance = getTouchDistance(event.touches);
+    state.imagePreviewPinchScale = state.imagePreviewScale;
+    return;
+  }
+  if (event.touches.length === 1) {
+    state.imagePreviewTouchStartX = event.touches[0].clientX;
+  }
+}
+
+function handleImagePreviewTouchMove(event) {
+  if (event.touches.length !== 2 || !state.imagePreviewPinchDistance) return;
+  event.preventDefault();
+  const distance = getTouchDistance(event.touches);
+  state.imagePreviewScale = clamp(state.imagePreviewPinchScale * (distance / state.imagePreviewPinchDistance), 1, 3);
+  updatePreviewImageScale();
+}
+
+function handleImagePreviewTouchEnd(event) {
+  if (state.imagePreviewPinchDistance) {
+    state.imagePreviewPinchDistance = 0;
+    return;
+  }
+  const changedTouch = event.changedTouches?.[0];
+  if (!changedTouch || !state.imagePreviewTouchStartX) return;
+  const deltaX = changedTouch.clientX - state.imagePreviewTouchStartX;
+  state.imagePreviewTouchStartX = 0;
+  if (Math.abs(deltaX) < 44 || state.imagePreviewScale > 1.05) return;
+  moveImagePreview(deltaX < 0 ? 1 : -1);
+}
+
+function handleImagePreviewWheel(event) {
+  if (!event.ctrlKey && Math.abs(event.deltaY) < 35) return;
+  event.preventDefault();
+  const delta = event.deltaY < 0 ? 0.12 : -0.12;
+  state.imagePreviewScale = clamp(state.imagePreviewScale + delta, 1, 3);
+  updatePreviewImageScale();
+}
+
+function updatePreviewImageScale() {
+  const image = els.imagePreviewFrame?.querySelector(".image-preview-main-image");
+  if (image) image.style.transform = `scale(${state.imagePreviewScale})`;
+}
+
+function getTouchDistance(touches) {
+  const [first, second] = touches;
+  return Math.hypot(second.clientX - first.clientX, second.clientY - first.clientY);
+}
+
+function getProductImageGallery(product) {
+  if (!product) return [];
+  const entries = [];
+  const addImage = (label, image) => {
+    const src = getImageSource(image);
+    if (!src || entries.some((entry) => entry.src === src)) return;
+    entries.push({ label, src });
+  };
+  addImage(product.name, product.image);
+  getProductVariants(product).forEach((variant) => {
+    addImage(`${product.name} - ${variant.name}`, variant.image || product.image);
+  });
+  return entries;
+}
+
+function syncModalBodyLock() {
+  const detailOpen = els.productDetailModal && !els.productDetailModal.classList.contains("is-hidden");
+  const previewOpen = els.imagePreviewModal && !els.imagePreviewModal.classList.contains("is-hidden");
+  const modalOpen = Boolean(detailOpen || previewOpen);
+  document.body.classList.toggle("modal-open", modalOpen);
+}
+
+function isMobileView() {
+  return window.matchMedia("(max-width: 768px)").matches;
 }
 
 function renderMapZones() {
@@ -836,7 +1144,19 @@ function syncMapPanelPlacement() {
 }
 
 function handlePageKeydown(event) {
-  if (event.key === "Escape" && state.mapOpen) {
+  if (event.key !== "Escape") return;
+
+  if (els.imagePreviewModal && !els.imagePreviewModal.classList.contains("is-hidden")) {
+    closeImagePreview();
+    return;
+  }
+
+  if (els.productDetailModal && !els.productDetailModal.classList.contains("is-hidden")) {
+    closeProductDetail();
+    return;
+  }
+
+  if (state.mapOpen) {
     closeMapPanel();
   }
 }
@@ -2033,6 +2353,19 @@ function replaceBrokenPreviewImage(imageNode) {
   if (!preview) return;
   preview.classList.add("is-empty");
   preview.textContent = "Image not available";
+}
+
+function replaceBrokenDetailImage(imageNode) {
+  const button = imageNode.closest(".product-detail-image-button");
+  if (!button) return;
+  button.classList.add("is-missing");
+  button.innerHTML = `<span class="missing-image">Image not available</span>`;
+}
+
+function replaceBrokenImagePreview(imageNode) {
+  const frame = imageNode.closest(".image-preview-frame");
+  if (!frame) return;
+  frame.innerHTML = `<div class="missing-image">Image not available</div>`;
 }
 
 async function resetInventory() {
