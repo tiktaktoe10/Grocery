@@ -34,7 +34,8 @@
   const COLLECTIONS = {
     products: "products",
     mapSections: "mapSections",
-    groceryLists: "groceryLists"
+    groceryLists: "groceryLists",
+    promotions: "promotions"
   };
 
   const remote = {
@@ -116,6 +117,20 @@
     },
     deleteMapSection(sectionKey) {
       return db.collection(COLLECTIONS.mapSections).doc(sectionKey).delete();
+    },
+    onPromotions(callback, onError) {
+      return db.collection(COLLECTIONS.promotions).onSnapshot((snapshot) => {
+        callback(snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() })));
+      }, onError);
+    },
+    savePromotion(promotion) {
+      return db.collection(COLLECTIONS.promotions).doc(promotion.id).set({
+        ...stripUndefined(promotion),
+        updatedAt: serverTimestamp()
+      });
+    },
+    deletePromotion(promotionId) {
+      return db.collection(COLLECTIONS.promotions).doc(promotionId).delete();
     }
   };
 

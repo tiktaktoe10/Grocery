@@ -47,6 +47,10 @@
               <div id="categoryChips" class="chip-row is-hidden" hidden></div>
             </section>
 
+            <section id="promotionPanel" class="promotion-panel is-hidden" aria-label="Ads and promotions">
+              <div id="promotionCarousel" class="promotion-carousel" aria-live="polite"></div>
+            </section>
+
             <aside id="mapPanel" class="map-panel" aria-labelledby="mapTitle" aria-hidden="false">
               <div class="panel-heading compact">
                 <div class="map-detail-copy">
@@ -200,6 +204,58 @@
                   <div id="newImagePreview" class="image-preview is-empty">Image preview</div>
                   <button class="ghost-button full-width" type="submit">Add Product</button>
                 </form>
+              </section>
+
+              <section class="tool-panel">
+                <div class="panel-heading">
+                  <h2>Ads / Promotions</h2>
+                  <span id="promoStatus" class="count-chip muted">Ready</span>
+                </div>
+                <form id="promotionForm" class="admin-form promotion-form">
+                  <label for="promoTitle">Title</label>
+                  <input id="promoTitle" type="text" placeholder="Weekend Sale">
+
+                  <label for="promoDescription">Short description</label>
+                  <textarea id="promoDescription" rows="2" placeholder="Fresh deals for today"></textarea>
+
+                  <label for="promoText">Sale price or promo text</label>
+                  <input id="promoText" type="text" placeholder="Save 20%">
+
+                  <label for="promoImage">Promotion image</label>
+                  <input id="promoImage" type="text" placeholder="Paste image URL or image here">
+                  <input id="promoImageUpload" type="file" accept="image/*" aria-label="Upload promotion image">
+                  <div id="promoImagePreview" class="image-preview is-empty">Image preview</div>
+
+                  <div class="inline-fields">
+                    <div class="form-pair">
+                      <label for="promoButtonText">Button text</label>
+                      <input id="promoButtonText" type="text" placeholder="Shop deal">
+                    </div>
+                    <div class="form-pair">
+                      <label for="promoLink">Link or action</label>
+                      <input id="promoLink" type="text" placeholder="https://example.com">
+                    </div>
+                  </div>
+
+                  <div class="inline-fields">
+                    <div class="form-pair">
+                      <label for="promoStartDate">Start date</label>
+                      <input id="promoStartDate" type="date">
+                    </div>
+                    <div class="form-pair">
+                      <label for="promoEndDate">End date</label>
+                      <input id="promoEndDate" type="date">
+                    </div>
+                  </div>
+
+                  <label class="checkbox-row" for="promoActive">
+                    <input id="promoActive" type="checkbox" checked>
+                    <span>Active promotion</span>
+                  </label>
+                  <p id="promoMessage" class="admin-message is-hidden" aria-live="polite"></p>
+                  <button class="primary-button full-width" type="submit">Add Promotion</button>
+                </form>
+                <div id="promotionList" class="promotion-list" aria-live="polite"></div>
               </section>
 
               <section class="tool-panel">

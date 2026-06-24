@@ -17,6 +17,7 @@ const STORAGE_KEYS = {
   listUpdatedAt: "haulmart.list.updatedAt.v1",
   budget: "haulmart.budget.v1",
   mapSections: "haulmart.map.sections.v1",
+  promotions: "haulmart.promotions.v1",
   wallRenameMigration: "haulmart.wall.rename.456.v1"
 };
 
@@ -175,10 +176,12 @@ const state = {
   groceryListUpdatedAt: readNumber(STORAGE_KEYS.listUpdatedAt, 0),
   budget: readJSON(STORAGE_KEYS.budget, []),
   mapSections: loadMapSections(),
+  promotions: loadPromotions(),
   category: "all",
   activeLocationKey: null,
   activeProductId: null,
   editingProductId: null,
+  editingPromotionId: null,
   selectedVariants: {},
   mapOpen: true,
   mapProductId: null,
@@ -194,6 +197,7 @@ const state = {
   firebaseReady: false,
   firebaseProductsLoaded: false,
   firebaseMapSectionsLoaded: false,
+  firebasePromotionsLoaded: false,
   firebaseUnsubscribes: [],
   firebaseCatalogSeedInProgress: false,
   remoteProductsEmpty: false,
@@ -228,6 +232,8 @@ function cacheElements() {
   els.navSearch = document.querySelector("#navSearch");
   els.clearNavSearch = document.querySelector("#clearNavSearch");
   els.categoryChips = document.querySelector("#categoryChips");
+  els.promotionPanel = document.querySelector("#promotionPanel");
+  els.promotionCarousel = document.querySelector("#promotionCarousel");
   els.navResults = document.querySelector("#navResults");
   els.resultsPanel = document.querySelector(".results-panel");
   els.navigationGrid = document.querySelector(".navigation-grid");
@@ -293,6 +299,21 @@ function cacheElements() {
   els.mapSectionMessage = document.querySelector("#mapSectionMessage");
   els.mapSectionStatus = document.querySelector("#mapSectionStatus");
   els.mapSectionList = document.querySelector("#mapSectionList");
+  els.promotionForm = document.querySelector("#promotionForm");
+  els.promoTitle = document.querySelector("#promoTitle");
+  els.promoDescription = document.querySelector("#promoDescription");
+  els.promoText = document.querySelector("#promoText");
+  els.promoImage = document.querySelector("#promoImage");
+  els.promoImageUpload = document.querySelector("#promoImageUpload");
+  els.promoImagePreview = document.querySelector("#promoImagePreview");
+  els.promoButtonText = document.querySelector("#promoButtonText");
+  els.promoLink = document.querySelector("#promoLink");
+  els.promoStartDate = document.querySelector("#promoStartDate");
+  els.promoEndDate = document.querySelector("#promoEndDate");
+  els.promoActive = document.querySelector("#promoActive");
+  els.promoMessage = document.querySelector("#promoMessage");
+  els.promoStatus = document.querySelector("#promoStatus");
+  els.promotionList = document.querySelector("#promotionList");
   els.productDetailModal = document.querySelector("#productDetailModal");
   els.productDetailContent = document.querySelector("#productDetailContent");
   els.closeProductDetail = document.querySelector("#closeProductDetail");
@@ -408,6 +429,15 @@ function wireEvents() {
   els.newImageUpload.addEventListener("change", () => handleImageUpload(els.newImageUpload, els.newImage, els.newImagePreview));
   els.adminAddForm.addEventListener("submit", addAdminProduct);
   els.mapSectionForm?.addEventListener("submit", saveMapSection);
+  els.promotionForm?.addEventListener("submit", savePromotion);
+  els.promoImage?.addEventListener("input", () => updateImagePreview(els.promoImagePreview, els.promoImage.value));
+  els.promoImage?.addEventListener("paste", (event) => handleImagePaste(event, els.promoImage, els.promoImagePreview, els.promoImageUpload));
+  els.promoImageUpload?.addEventListener("change", () => handleImageUpload(els.promoImageUpload, els.promoImage, els.promoImagePreview));
+  els.promotionList?.addEventListener("click", handlePromotionListClick);
+  els.promotionList?.addEventListener("submit", saveInlinePromotion);
+  els.promotionList?.addEventListener("input", handlePromotionListInput);
+  els.promotionList?.addEventListener("change", handlePromotionListChange);
+  els.promotionList?.addEventListener("paste", handlePromotionListPaste);
 }
 
 function setRole(role) {
@@ -456,9 +486,11 @@ function setTab(tab) {
 }
 
 function renderAll() {
+  renderPromotions();
   renderNavigation();
   renderGroceryList();
   renderBudget();
+  renderPromotionSettings();
   renderMapSettings();
   renderAdminGate();
 }
@@ -516,6 +548,22 @@ function connectFirebase() {
     console.error(error);
   }));
 
+  if (remote.onPromotions) {
+    state.firebaseUnsubscribes.push(remote.onPromotions((promotions) => {
+      state.firebasePromotionsLoaded = true;
+      state.promotions = promotions
+        .map(normalizePromotion)
+        .filter(Boolean)
+        .sort((a, b) => getPromotionSortValue(a) - getPromotionSortValue(b) || a.title.localeCompare(b.title));
+      renderPromotions();
+      renderPromotionSettings();
+    }, (error) => {
+      state.firebasePromotionsLoaded = false;
+      setAdminStatus("Firebase promotion sync failed");
+      console.error(error);
+    }));
+  }
+
   if (remote.onGroceryList) {
     state.firebaseUnsubscribes.push(remote.onGroceryList(state.clientId, applyRemoteGroceryList, (error) => {
       console.error("Firestore shopping list sync failed:", error);
@@ -526,9 +574,11 @@ function connectFirebase() {
 function renderInventoryViews() {
   renderProductOptions();
   renderCategoryChips();
+  renderPromotions();
   renderNavigation();
   renderGroceryList();
   renderBudget();
+  renderPromotionSettings();
   renderAdminGate();
 }
 
@@ -552,10 +602,47 @@ function renderCategoryChips() {
   els.categoryChips.hidden = true;
 }
 
+function renderPromotions() {
+  if (!els.promotionPanel || !els.promotionCarousel) return;
+  const isLandingView = !normalize(els.navSearch?.value) && !state.activeLocationKey && state.category === "all";
+  const promotions = isLandingView
+    ? state.promotions.filter(isPromotionVisible)
+    : [];
+
+  els.promotionPanel.classList.toggle("is-hidden", !promotions.length);
+  els.promotionCarousel.innerHTML = promotions.map(renderPromotionBanner).join("");
+}
+
+function renderPromotionBanner(promotion) {
+  const imageSource = getImageSource(promotion.image);
+  const cta = getPromotionLinkMarkup(promotion);
+  return `
+    <article class="promotion-card" data-promotion-id="${escapeHTML(promotion.id)}">
+      <div class="promotion-copy">
+        ${promotion.promoText ? `<span class="promotion-eyebrow">${escapeHTML(promotion.promoText)}</span>` : ""}
+        <h2>${escapeHTML(promotion.title)}</h2>
+        ${promotion.description ? `<p>${escapeHTML(promotion.description)}</p>` : ""}
+        ${cta}
+      </div>
+      ${imageSource
+        ? `<div class="promotion-image-wrap"><img class="promotion-image" src="${escapeHTML(imageSource)}" alt="${escapeHTML(promotion.title)}" onerror="replaceBrokenPromotionImage(this)"></div>`
+        : ""}
+    </article>
+  `;
+}
+
+function getPromotionLinkMarkup(promotion) {
+  if (!promotion.buttonText) return "";
+  const link = normalizePromotionLink(promotion.link);
+  if (!link) return `<span class="promotion-button">${escapeHTML(promotion.buttonText)}</span>`;
+  return `<a class="promotion-button" href="${escapeHTML(link)}" target="_blank" rel="noopener">${escapeHTML(promotion.buttonText)}</a>`;
+}
+
 function renderNavigation() {
   const results = getNavigationResults();
   const query = normalize(els.navSearch.value);
   const hasQuery = Boolean(query);
+  renderPromotions();
   if (hasQuery) {
     applyQueryVariantSelection(results, query);
   }
@@ -1508,6 +1595,7 @@ function renderAdminGate() {
   }
   if (state.adminUnlocked) {
     renderAdminList();
+    renderPromotionSettings();
     renderMapSettings();
   }
 }
@@ -2021,6 +2109,258 @@ function renderAfterMapSettingsChange(statusText) {
   window.setTimeout(renderMapSettings, 1600);
 }
 
+async function savePromotion(event) {
+  event.preventDefault();
+  const promotion = collectPromotionFields();
+  if (!promotion.title) {
+    showAdminMessage(els.promoMessage, "Enter a promotion title before saving.", "error");
+    return;
+  }
+  if (!isValidPromotionDateRange(promotion)) {
+    showAdminMessage(els.promoMessage, "End date must be after the start date.", "error");
+    return;
+  }
+
+  promotion.id = uniquePromotionId(slugify(promotion.title || "promotion"));
+
+  try {
+    setAdminStatus("Saving promotion");
+    const savedPromotion = preparePromotionForRemote(promotion);
+    await persistPromotion(savedPromotion);
+    upsertPromotion(savedPromotion);
+  } catch (error) {
+    console.error(error);
+    showAdminMessage(els.promoMessage, error.message || "Promotion could not be saved.", "error");
+    setAdminStatus("Promotion save failed");
+    return;
+  }
+
+  clearPromotionForm();
+  showAdminMessage(els.promoMessage, "Promotion saved.", "success");
+  renderAfterPromotionChange("Promotion saved");
+}
+
+function collectPromotionFields(form = null, fallback = {}) {
+  const value = (name, fallbackValue = "") => {
+    if (!form) return fallbackValue;
+    return form.elements[name]?.value ?? fallbackValue;
+  };
+  const checked = (name, fallbackValue = true) => {
+    if (!form) return fallbackValue;
+    return Boolean(form.elements[name]?.checked);
+  };
+
+  return normalizePromotion({
+    id: fallback.id,
+    title: form ? value("title", fallback.title) : els.promoTitle?.value,
+    description: form ? value("description", fallback.description) : els.promoDescription?.value,
+    promoText: form ? value("promoText", fallback.promoText) : els.promoText?.value,
+    image: form ? value("image", fallback.image) : els.promoImage?.value,
+    buttonText: form ? value("buttonText", fallback.buttonText) : els.promoButtonText?.value,
+    link: form ? value("link", fallback.link) : els.promoLink?.value,
+    startDate: form ? value("startDate", fallback.startDate) : els.promoStartDate?.value,
+    endDate: form ? value("endDate", fallback.endDate) : els.promoEndDate?.value,
+    active: form ? checked("active", fallback.active !== false) : els.promoActive?.checked !== false
+  });
+}
+
+function clearPromotionForm() {
+  if (!els.promotionForm) return;
+  els.promotionForm.reset();
+  if (els.promoActive) els.promoActive.checked = true;
+  if (els.promoImageUpload) els.promoImageUpload.value = "";
+  updateImagePreview(els.promoImagePreview, "");
+}
+
+function renderPromotionSettings() {
+  if (!els.promotionList) return;
+  const promotions = state.promotions
+    .slice()
+    .sort((a, b) => getPromotionSortValue(a) - getPromotionSortValue(b) || a.title.localeCompare(b.title));
+  const activeCount = promotions.filter(isPromotionVisible).length;
+  if (els.promoStatus) {
+    els.promoStatus.textContent = `${activeCount} active`;
+  }
+  els.promotionList.innerHTML = promotions.length
+    ? promotions.map(renderPromotionAdminCard).join("")
+    : `<div class="empty-state compact">No promotions saved yet.</div>`;
+}
+
+function renderPromotionAdminCard(promotion) {
+  const selected = state.editingPromotionId === promotion.id;
+  const statusText = getPromotionAdminStatus(promotion);
+  return `
+    <article class="promotion-admin-card ${selected ? "is-selected" : ""}" data-promotion-id="${escapeHTML(promotion.id)}">
+      <div class="promotion-admin-summary">
+        <div>
+          <strong>${escapeHTML(promotion.title)}</strong>
+          <span class="item-meta">${escapeHTML(statusText)}${promotion.promoText ? ` | ${escapeHTML(promotion.promoText)}` : ""}</span>
+        </div>
+        <button class="mini-button" type="button" data-action="edit-promotion" data-id="${escapeHTML(promotion.id)}">${selected ? "Editing" : "Edit"}</button>
+      </div>
+      ${selected ? renderPromotionInlineEditor(promotion) : ""}
+    </article>
+  `;
+}
+
+function renderPromotionInlineEditor(promotion) {
+  return `
+    <form class="admin-form promotion-edit-form" data-promotion-edit="${escapeHTML(promotion.id)}">
+      <label>Title</label>
+      <input name="title" type="text" value="${escapeHTML(promotion.title)}">
+
+      <label>Short description</label>
+      <textarea name="description" rows="2">${escapeHTML(promotion.description)}</textarea>
+
+      <label>Sale price or promo text</label>
+      <input name="promoText" type="text" value="${escapeHTML(promotion.promoText)}">
+
+      <label>Promotion image</label>
+      <input name="image" type="text" value="${escapeHTML(promotion.image || "")}" placeholder="Paste image URL or image here" data-promo-inline-image>
+      <input type="file" accept="image/*" aria-label="Upload promotion image" data-promo-inline-image-upload>
+      ${renderImagePreview(promotion.image).replace("data-inline-image-preview", "data-promo-image-preview")}
+
+      <div class="inline-fields">
+        <div class="form-pair">
+          <label>Button text</label>
+          <input name="buttonText" type="text" value="${escapeHTML(promotion.buttonText)}">
+        </div>
+        <div class="form-pair">
+          <label>Link or action</label>
+          <input name="link" type="text" value="${escapeHTML(promotion.link)}">
+        </div>
+      </div>
+
+      <div class="inline-fields">
+        <div class="form-pair">
+          <label>Start date</label>
+          <input name="startDate" type="date" value="${escapeHTML(promotion.startDate)}">
+        </div>
+        <div class="form-pair">
+          <label>End date</label>
+          <input name="endDate" type="date" value="${escapeHTML(promotion.endDate)}">
+        </div>
+      </div>
+
+      <label class="checkbox-row">
+        <input name="active" type="checkbox" ${promotion.active ? "checked" : ""}>
+        <span>Active promotion</span>
+      </label>
+
+      <div class="admin-inline-actions">
+        <button class="primary-button" type="submit">Save Changes</button>
+        <button class="ghost-button" type="button" data-action="cancel-promotion-edit">Cancel</button>
+        <button class="danger-button remove-product-button" type="button" data-action="delete-promotion" data-id="${escapeHTML(promotion.id)}">Delete Promotion</button>
+      </div>
+    </form>
+  `;
+}
+
+function handlePromotionListClick(event) {
+  const edit = event.target.closest("[data-action='edit-promotion']");
+  if (edit) {
+    state.editingPromotionId = edit.dataset.id;
+    renderPromotionSettings();
+    return;
+  }
+
+  if (event.target.closest("[data-action='cancel-promotion-edit']")) {
+    state.editingPromotionId = null;
+    renderPromotionSettings();
+    return;
+  }
+
+  const deleteButton = event.target.closest("[data-action='delete-promotion']");
+  if (!deleteButton) return;
+  removePromotion(deleteButton.dataset.id);
+}
+
+async function saveInlinePromotion(event) {
+  const form = event.target.closest("[data-promotion-edit]");
+  if (!form) return;
+  event.preventDefault();
+  const promotion = findPromotionById(form.dataset.promotionEdit);
+  if (!promotion) return;
+  const draft = collectPromotionFields(form, promotion);
+  if (!draft.title) {
+    setAdminStatus("Promotion needs a title");
+    return;
+  }
+  if (!isValidPromotionDateRange(draft)) {
+    setAdminStatus("Check promotion dates");
+    return;
+  }
+
+  try {
+    setAdminStatus("Saving promotion");
+    const savedPromotion = preparePromotionForRemote(draft);
+    await persistPromotion(savedPromotion);
+    upsertPromotion(savedPromotion);
+    state.editingPromotionId = null;
+    renderAfterPromotionChange("Promotion saved");
+  } catch (error) {
+    console.error(error);
+    setAdminStatus(error.message || "Promotion save failed");
+  }
+}
+
+function handlePromotionListInput(event) {
+  const imageInput = event.target.closest("[data-promo-inline-image]");
+  if (!imageInput) return;
+  const form = imageInput.closest("[data-promotion-edit]");
+  updateImagePreview(form.querySelector("[data-promo-image-preview]"), imageInput.value);
+}
+
+function handlePromotionListChange(event) {
+  const upload = event.target.closest("[data-promo-inline-image-upload]");
+  if (!upload) return;
+  const form = upload.closest("[data-promotion-edit]");
+  handleImageUpload(upload, form.elements.image, form.querySelector("[data-promo-image-preview]"));
+}
+
+function handlePromotionListPaste(event) {
+  const imageInput = event.target.closest("[data-promo-inline-image]");
+  if (!imageInput) return;
+  const form = imageInput.closest("[data-promotion-edit]");
+  handleImagePaste(
+    event,
+    form.elements.image,
+    form.querySelector("[data-promo-image-preview]"),
+    form.querySelector("[data-promo-inline-image-upload]")
+  );
+}
+
+async function removePromotion(promotionId) {
+  const promotion = findPromotionById(promotionId);
+  if (!promotion) return;
+  const confirmed = window.confirm("Delete this promotion? This cannot be undone.");
+  if (!confirmed) return;
+
+  try {
+    setAdminStatus("Deleting promotion");
+    await deleteRemotePromotion(promotion.id);
+  } catch (error) {
+    console.error(error);
+    setAdminStatus("Promotion delete failed");
+    return;
+  }
+
+  state.promotions = state.promotions.filter((item) => item.id !== promotion.id);
+  if (state.editingPromotionId === promotion.id) state.editingPromotionId = null;
+  persistPromotions();
+  renderAfterPromotionChange("Promotion deleted");
+}
+
+function renderAfterPromotionChange(statusText) {
+  renderPromotions();
+  renderPromotionSettings();
+  setAdminStatus(statusText);
+  window.setTimeout(() => {
+    setAdminStatus(state.firebaseReady ? "Firebase synced" : "Ready");
+    renderPromotionSettings();
+  }, 1600);
+}
+
 async function handleImageUpload(fileInput, textInput, previewNode) {
   const file = fileInput.files?.[0];
   if (!file) return;
@@ -2353,6 +2693,13 @@ function replaceBrokenPreviewImage(imageNode) {
   if (!preview) return;
   preview.classList.add("is-empty");
   preview.textContent = "Image not available";
+}
+
+function replaceBrokenPromotionImage(imageNode) {
+  const frame = imageNode.closest(".promotion-image-wrap");
+  if (!frame) return;
+  frame.classList.add("is-missing");
+  frame.textContent = "Image not available";
 }
 
 function replaceBrokenDetailImage(imageNode) {
@@ -2867,6 +3214,154 @@ function parseCategoryList(value) {
     .split(/[\n,]+/)
     .map((category) => category.trim())
     .filter(Boolean))];
+}
+
+function loadPromotions() {
+  const saved = readJSON(STORAGE_KEYS.promotions, []);
+  if (!Array.isArray(saved)) return [];
+  return saved
+    .map(normalizePromotion)
+    .filter(Boolean);
+}
+
+function normalizePromotion(promotion) {
+  if (!promotion) return null;
+  const title = String(promotion?.title || "").trim();
+  const id = String(promotion?.id || slugify(title || "promotion")).trim();
+  return {
+    id,
+    title,
+    description: String(promotion?.description || "").trim(),
+    promoText: String(promotion?.promoText || promotion?.saleText || "").trim(),
+    image: normalizeProductImagePath(promotion?.image),
+    buttonText: String(promotion?.buttonText || "").trim(),
+    link: normalizePromotionLink(promotion?.link || promotion?.action || ""),
+    startDate: normalizeDateInput(promotion?.startDate),
+    endDate: normalizeDateInput(promotion?.endDate),
+    active: promotion?.active !== false
+  };
+}
+
+function serializePromotion(promotion) {
+  const normalized = normalizePromotion(promotion);
+  return {
+    id: normalized.id,
+    title: normalized.title,
+    description: normalized.description,
+    promoText: normalized.promoText,
+    image: normalized.image || "",
+    buttonText: normalized.buttonText,
+    link: normalized.link,
+    startDate: normalized.startDate,
+    endDate: normalized.endDate,
+    active: normalized.active !== false
+  };
+}
+
+function normalizeDateInput(value) {
+  const clean = String(value || "").trim();
+  const match = clean.match(/^\d{4}-\d{2}-\d{2}/);
+  return match ? match[0] : "";
+}
+
+function normalizePromotionLink(value) {
+  const link = String(value || "").trim();
+  if (!link || /^(javascript|data|file|blob):/i.test(link)) return "";
+  return link;
+}
+
+function isPromotionVisible(promotion) {
+  if (!promotion?.active) return false;
+  const today = getTodayDateString();
+  if (promotion.startDate && promotion.startDate > today) return false;
+  if (promotion.endDate && promotion.endDate < today) return false;
+  return true;
+}
+
+function isValidPromotionDateRange(promotion) {
+  return !promotion.startDate || !promotion.endDate || promotion.endDate >= promotion.startDate;
+}
+
+function getTodayDateString() {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
+function getPromotionSortValue(promotion) {
+  const date = promotion.startDate || promotion.endDate || "9999-12-31";
+  return Number(date.replaceAll("-", ""));
+}
+
+function getPromotionAdminStatus(promotion) {
+  if (!promotion.active) return "Inactive";
+  if (!isPromotionVisible(promotion)) {
+    const today = getTodayDateString();
+    if (promotion.startDate && promotion.startDate > today) return `Starts ${promotion.startDate}`;
+    if (promotion.endDate && promotion.endDate < today) return `Expired ${promotion.endDate}`;
+  }
+  const range = [promotion.startDate, promotion.endDate].filter(Boolean).join(" to ");
+  return range ? `Active | ${range}` : "Active";
+}
+
+function findPromotionById(id) {
+  return state.promotions.find((promotion) => promotion.id === id) || null;
+}
+
+function uniquePromotionId(base) {
+  const cleanBase = base || "promotion";
+  let id = cleanBase;
+  let counter = 2;
+  while (findPromotionById(id)) {
+    id = `${cleanBase}-${counter}`;
+    counter += 1;
+  }
+  return id;
+}
+
+function upsertPromotion(promotion) {
+  const normalized = normalizePromotion(promotion);
+  if (!normalized) return;
+  const index = state.promotions.findIndex((item) => item.id === normalized.id);
+  if (index >= 0) {
+    state.promotions[index] = normalized;
+  } else {
+    state.promotions.push(normalized);
+  }
+  state.promotions.sort((a, b) => getPromotionSortValue(a) - getPromotionSortValue(b) || a.title.localeCompare(b.title));
+  persistPromotions();
+}
+
+function persistPromotions() {
+  if (state.firebaseReady) return;
+  saveJSON(STORAGE_KEYS.promotions, state.promotions.map(serializePromotion));
+}
+
+async function persistPromotion(promotion) {
+  if (state.firebaseReady && state.firebase?.savePromotion) {
+    await state.firebase.savePromotion(serializePromotion(promotion));
+  }
+}
+
+async function deleteRemotePromotion(promotionId) {
+  if (state.firebaseReady && state.firebase?.deletePromotion) {
+    await state.firebase.deletePromotion(promotionId);
+  }
+}
+
+function preparePromotionForRemote(promotion) {
+  const normalized = normalizePromotion(structuredCloneSafe(promotion));
+  assertPromotionImageSize(normalized);
+  return normalized;
+}
+
+function assertPromotionImageSize(promotion) {
+  if (!isFirestoreProductImage(promotion?.image)) return;
+  const bytes = getDataUrlByteLength(promotion.image);
+  if (bytes > ADMIN_IMAGE_MAX_FIRESTORE_BYTES) {
+    throw new Error("Promotion image is too large for Firestore.");
+  }
 }
 
 function uniqueMapSectionKey(base) {
