@@ -1033,7 +1033,14 @@ function closeImagePreview() {
 
 function renderImagePreview() {
   const gallery = getProductImageGallery(findProductById(state.imagePreviewProductId));
-  if (!gallery.length || !els.imagePreviewFrame || !els.imagePreviewThumbs) return;
+  if (!els.imagePreviewFrame || !els.imagePreviewThumbs) return;
+  if (!gallery.length) {
+    els.imagePreviewFrame.innerHTML = `<div class="missing-image">Image not available</div>`;
+    els.imagePreviewThumbs.innerHTML = "";
+    if (els.imagePreviewPrev) els.imagePreviewPrev.hidden = true;
+    if (els.imagePreviewNext) els.imagePreviewNext.hidden = true;
+    return;
+  }
   state.imagePreviewIndex = clamp(state.imagePreviewIndex, 0, gallery.length - 1);
   const activeImage = gallery[state.imagePreviewIndex];
   els.imagePreviewFrame.innerHTML = `
@@ -1829,7 +1836,7 @@ function renderInlineAdminEditor(product) {
         <label>Product Image</label>
         <input name="image" type="text" value="${escapeHTML(product.image || "")}" placeholder="assets/products/product-name.jpg" data-inline-image>
         <input type="file" accept="image/*" aria-label="Upload product image" data-inline-image-upload>
-        ${renderImagePreview(product.image)}
+        ${renderInlineImagePreview(product.image)}
 
         <section class="variant-editor">
           <div class="variant-editor-heading">
@@ -1881,7 +1888,7 @@ function renderVariantEditorRow(variant = {}) {
           <input type="file" accept="image/*" aria-label="Upload variant image" data-inline-variant-image-upload>
         </div>
       </div>
-      ${renderImagePreview(variant.image).replace("data-inline-image-preview", "data-variant-image-preview")}
+      ${renderInlineImagePreview(variant.image).replace("data-inline-image-preview", "data-variant-image-preview")}
       <button class="mini-button danger-mini-button" type="button" data-action="remove-variant">Delete Variant</button>
     </article>
   `;
@@ -2661,7 +2668,7 @@ function renderPromotionInlineEditor(promotion) {
       <label>Promotion image</label>
       <input name="image" type="text" value="${escapeHTML(promotion.image || "")}" placeholder="Paste image URL or image here" data-promo-inline-image>
       <input type="file" accept="image/*" aria-label="Upload promotion image" data-promo-inline-image-upload>
-      ${renderImagePreview(promotion.image).replace("data-inline-image-preview", "data-promo-image-preview")}
+      ${renderInlineImagePreview(promotion.image).replace("data-inline-image-preview", "data-promo-image-preview")}
 
       <div class="inline-fields">
         <div class="form-pair">
@@ -3081,7 +3088,7 @@ function updateImagePreview(previewNode, imageValue, message = "", type = "") {
       : "Image preview";
 }
 
-function renderImagePreview(imageValue) {
+function renderInlineImagePreview(imageValue) {
   const image = normalizeProductImagePath(imageValue);
   return `
     <div class="image-preview ${image ? "" : "is-empty"}" data-inline-image-preview>
