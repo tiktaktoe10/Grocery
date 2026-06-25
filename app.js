@@ -862,19 +862,18 @@ function handleProductAction(event) {
   }
 
   const card = event.target.closest(".product-card");
-  if (!card || !isMobileView()) return;
+  if (!card) return;
   const product = findProductById(card.dataset.productId);
   if (!product) return;
 
   if (event.target.closest(".product-shot")) {
-    const selectedVariant = getSelectedVariant(product);
-    const display = getProductDisplayDetails(product, selectedVariant);
-    const galleryIndex = getProductImageGallery(product)
-      .findIndex((entry) => entry.src === getImageSource(display.image));
-    openImagePreview(product.id, Math.max(0, galleryIndex));
+    event.preventDefault();
+    event.stopPropagation();
+    openSelectedProductImagePreview(product);
     return;
   }
 
+  if (!isMobileView()) return;
   openProductDetail(product.id);
 }
 
@@ -982,11 +981,9 @@ function handleProductDetailClick(event) {
   if (!product) return;
 
   if (event.target.closest("[data-detail-preview]")) {
-    const selectedVariant = getSelectedVariant(product);
-    const display = getProductDisplayDetails(product, selectedVariant);
-    const imageSource = getImageSource(display.image);
-    const imageIndex = getProductImageGallery(product).findIndex((entry) => entry.src === imageSource);
-    openImagePreview(product.id, Math.max(0, imageIndex));
+    event.preventDefault();
+    event.stopPropagation();
+    openSelectedProductImagePreview(product);
     return;
   }
 
@@ -1014,6 +1011,15 @@ function openImagePreview(productId, index = 0) {
   els.imagePreviewModal?.setAttribute("aria-hidden", "false");
   syncModalBodyLock();
   window.requestAnimationFrame(() => els.closeImagePreview?.focus());
+}
+
+function openSelectedProductImagePreview(product) {
+  if (!product) return;
+  const selectedVariant = getSelectedVariant(product);
+  const display = getProductDisplayDetails(product, selectedVariant);
+  const imageSource = getImageSource(display.image);
+  const imageIndex = getProductImageGallery(product).findIndex((entry) => entry.src === imageSource);
+  openImagePreview(product.id, Math.max(0, imageIndex));
 }
 
 function closeImagePreview() {
@@ -1052,7 +1058,7 @@ function handleImagePreviewClick(event) {
     return;
   }
 
-  if (event.target === els.imagePreviewModal) {
+  if (event.target === els.imagePreviewModal || event.target === els.imagePreviewFrame) {
     closeImagePreview();
   }
 }
